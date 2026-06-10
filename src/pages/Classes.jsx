@@ -8,6 +8,7 @@ const api = axios.create({
 });
 
 function Classes() {
+    // Lấy thêm danh sách giáo viên thực tế (teachers) từ CSDL thông qua DataContext
     const { classes, addClass, teachers } = useData();
     const { currentUser, currentRole } = useAuth();
 
@@ -18,9 +19,10 @@ function Classes() {
     // Quản lý danh sách học viên thực tế lấy từ CSDL cho lớp được chọn
     const [classStudents, setClassStudents] = useState([]);
 
+    // Để trống giá trị mặc định của trường giáo viên (teacher: '')
     const [formClass, setFormClass] = useState({
-        name: '', teacher: '', ta: '', padletUrl: '', classType: '',
-        level: '', sessionFee: '', startDate: '', totalSessions: 0, scheduleTime: ''
+        name: '', teacher: '', ta: '', padletUrl: '', classType: 'Lớp Nhóm',
+        level: 'HSK 1', sessionFee: '', startDate: '', totalSessions: 19, scheduleTime: ''
     });
 
     // Tải danh sách học viên động từ DB khi chọn một lớp cụ thể
@@ -40,6 +42,7 @@ function Classes() {
 
     const handleCreateClass = (e) => {
         e.preventDefault();
+        // Không bắt buộc phải chọn giáo viên khi tạo lớp mới
         if (!formClass.name || !formClass.sessionFee) {
             alert('Vui lòng điền Tên lớp học và cấu hình Học phí/Buổi!');
             return;
@@ -47,7 +50,8 @@ function Classes() {
 
         const newClassObj = {
             name: formClass.name,
-            teacher: formClass.teacher + (currentRole === 'admin' ? ' (admin)' : ''),
+            // Nếu có chọn giáo viên thì mới gán tên, đi kèm hậu tố nếu là Admin, nếu trống thì để rỗng
+            teacher: formClass.teacher ? (formClass.teacher + (currentRole === 'admin' ? ' (admin)' : '')) : '',
             ta: formClass.ta,
             progress: 0,
             totalSessions: parseInt(formClass.totalSessions),
@@ -59,7 +63,8 @@ function Classes() {
 
         addClass(newClassObj);
         alert(`Hệ thống: Khởi tạo thành công lớp học ${formClass.name}!`);
-        setFormClass({ name: '', teacher: '', ta: '', padletUrl: '', classType: '', level: '', sessionFee: '', startDate: '', totalSessions: 0, scheduleTime: '' });
+        // Reset form về trạng thái trống
+        setFormClass({ name: '', teacher: '', ta: '', padletUrl: '', classType: 'Lớp Nhóm', level: 'HSK 1', sessionFee: '', startDate: '', totalSessions: 19, scheduleTime: '' });
     };
 
     let displayClasses = classes || [];
@@ -209,20 +214,14 @@ function Classes() {
                             <div>
                                 <label style={{ fontSize: '0.75rem', fontWeight: '700', color: 'var(--text-muted)', marginBottom: '8px', display: 'block' }}>GIÁO VIÊN PHỤ TRÁCH</label>
                                 <select className="form-control" value={formClass.teacher} onChange={(e) => setFormClass({ ...formClass, teacher: e.target.value })}>
-                                    <div>
-                                        <label style={{ fontSize: '0.75rem', fontWeight: '700', color: 'var(--text-muted)', marginBottom: '8px', display: 'block' }}>GIÁO VIÊN PHỤ TRÁCH (*)</label>
-                                        <select className="form-control" value={formClass.teacher} onChange={(e) => setFormClass({ ...formClass, teacher: e.target.value })}>
-                                            <option value="" disabled>-- Chọn Giáo viên --</option>
-
-                                            {/* Vòng lặp in ra danh sách giáo viên từ Database */}
-                                            {teachers && teachers.map((teacher) => (
-                                                <option key={teacher.id} value={teacher.name}>
-                                                    👨‍🏫 {teacher.name}
-                                                </option>
-                                            ))}
-
-                                        </select>
-                                    </div>
+                                    <option value="">-- Để trống (Xếp lịch sau) --</option>
+                                    
+                                    {/* Duyệt mảng liên kết động từ DB database thông qua DataContext */}
+                                    {teachers && teachers.map((teacher) => (
+                                        <option key={teacher.id} value={teacher.name}>
+                                            👨‍🏫 {teacher.name}
+                                        </option>
+                                    ))}
                                 </select>
                             </div>
                             <div>
@@ -310,7 +309,8 @@ function Classes() {
                                     >
                                         {c.name}
                                     </strong>
-                                    <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}><i className="fa-solid fa-chalkboard-user" style={{ color: '#94a3b8', marginRight: '6px' }}></i> {c.teacher} {c.ta && `| TA: ${c.ta}`}</span>
+                                    {/* Hiển thị 'Chưa xếp lịch' nếu giá trị giáo viên trong DB rỗng */}
+                                    <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}><i className="fa-solid fa-chalkboard-user" style={{ color: '#94a3b8', marginRight: '6px' }}></i> {c.teacher || 'Chưa xếp giáo viên'} {c.ta && `| TA: ${c.ta}`}</span>
                                 </td>
                                 <td style={{ padding: '20px 24px', fontSize: '0.85rem', color: 'var(--text-muted)', lineHeight: '1.6' }}>
                                     <div><i className="fa-regular fa-clock" style={{ color: '#94a3b8', width: '20px' }}></i> {c.schedule}</div>
@@ -318,7 +318,7 @@ function Classes() {
                                 </td>
                                 <td style={{ padding: '20px 24px' }}>
                                     <span style={{ backgroundColor: '#e0e7ff', color: '#3730a3', padding: '4px 12px', borderRadius: '50px', fontSize: '0.75rem', fontWeight: '800' }}>
-                                        {c.studentIds?.length || 5} HV
+                                        {c.studentIds?.length || 0} HV
                                     </span>
                                 </td>
                                 {currentRole !== 'teacher' && (
