@@ -1,32 +1,68 @@
-import React, { createContext, useState, useContext } from 'react';
+import React, { createContext, useState, useContext, useEffect } from 'react';
+import axios from 'axios';
 
-// Khởi tạo Context
 const AuthContext = createContext();
 
-// Component Provider để bọc ngoài ứng dụng
 export const AuthProvider = ({ children }) => {
-    // Trạng thái vai trò hiện tại. Mặc định là 'teacher' để đảm bảo an toàn (ít quyền nhất)
-    // Các giá trị hợp lệ: 'admin', 'manager', 'sales', 'teacher'
-    const [currentRole, setCurrentRole] = useState('teacher');
+    // API kết nối đến Backend xác thực
+    const authApi = axios.create({ baseURL: 'http://localhost:8081/api/auth' });
 
-    // Hàm thay đổi vai trò (Dùng cho tính năng Giả lập ở Topbar)
-    const changeRole = (role) => {
-        setCurrentRole(role);
-        // Trong thực tế, bạn có thể thêm logic lưu vào localStorage hoặc gọi API ở đây
+    // Chỉ lưu phiên người dùng hiện tại, KHÔNG lưu danh sách user ảo nữa
+    const [currentUser, setCurrentUser] = useState(() => {
+        const savedSession = localStorage.getItem('nl_real_session');
+        return savedSession ? JSON.parse(savedSession) : null;
+    });
+
+    useEffect(() => {
+        if (currentUser) {
+            localStorage.setItem('nl_real_session', JSON.stringify(currentUser));
+        } else {
+            localStorage.removeItem('nl_real_session');
+        }
+    }, [currentUser]);
+
+    const currentRole = currentUser?.role || null;
+
+    // Gọi API Đăng nhập thật
+    const login = async (username, password) => {
+        try {
+            const response = await authApi.post('/login', { username, password });
+            setCurrentUser(response.data); // Backend trả về thông tin User
+            return { success: true };
+        } catch (error) {
+            return { success: false, message: error.response?.data?.message || 'Sai tài khoản hoặc mật khẩu!' };
+        }
+    };
+
+    // Gọi API Đăng ký thật
+    const register = async (name, username, password, role) => {
+        try {
+            await authApi.post('/register', { name, username, password, role });
+            return { success: true };
+        } catch (error) {
+            return { success: false, message: error.response?.data?.message || 'Tên đăng nhập đã tồn tại!' };
+        }
+    };
+
+    const logout = () => {
+        setCurrentUser(null);
+    };
+
+    const updateProfile = async (updatedData) => {
+        try {
+            const response = await authApi.put(`/update/${currentUser.id}`, updatedData);
+            setCurrentUser(response.data);
+            return { success: true };
+        } catch (error) {
+            return { success: false, message: 'Lỗi cập nhật hồ sơ!' };
+        }
     };
 
     return (
-        <AuthContext.Provider value={{ currentRole, changeRole }}>
+        <AuthContext.Provider value={{ currentUser, currentRole, login, register, logout, updateProfile }}>
             {children}
         </AuthContext.Provider>
     );
 };
 
-// Custom Hook để các Component khác dễ dàng lấy dữ liệu phân quyền
-export const useAuth = () => {
-    const context = useContext(AuthContext);
-    if (!context) {
-        throw new Error("useAuth phải được sử dụng bên trong AuthProvider");
-    }
-    return context;
-};
+export const useAuth = () => useContext(AuthContext);

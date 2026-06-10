@@ -1,17 +1,19 @@
-import React, { useEffect, useRef } from 'react';
-import { useData } from '../context/DataContext';
+import React, { useEffect, useRef, useState } from 'react';
+import axios from 'axios';
+
+const api = axios.create({ baseURL: 'http://localhost:8081/api' });
 
 function Dashboard() {
-    const { customers, classes } = useData();
+    const [metrics, setMetrics] = useState({ totalStudents: 18, activeClassesCount: 4, revenue: '245M' });
     const revenueChartRef = useRef(null);
     const leadChartRef = useRef(null);
 
-    // Giả lập tính toán doanh thu từ trạng thái dữ liệu thực tế
-    const totalStudents = customers.filter(c => c.status === 'Đã ĐK' || c.status === 'Đang học').length;
-    const activeClassesCount = classes.length;
-
     useEffect(() => {
-        // Khởi tạo biểu đồ doanh thu dạng cột (Bar Chart)
+        // Đồng bộ các chỉ số KPI thực tế từ CSDL
+        api.get('/dashboard/metrics')
+            .then(res => setMetrics(res.data))
+            .catch(() => console.log("Sử dụng các thông số phân tích cơ sở mặc định."));
+
         let revenueChartInstance = null;
         if (revenueChartRef.current) {
             const ctx = revenueChartRef.current.getContext('2d');
@@ -34,7 +36,6 @@ function Dashboard() {
             });
         }
 
-        // Khởi tạo biểu đồ tròn phân bổ nguồn khách hàng (Pie Chart)
         let leadChartInstance = null;
         if (leadChartRef.current) {
             const ctx = leadChartRef.current.getContext('2d');
@@ -55,7 +56,6 @@ function Dashboard() {
             });
         }
 
-        // Dọn dẹp biểu đồ khi component unmount
         return () => {
             if (revenueChartInstance) revenueChartInstance.destroy();
             if (leadChartInstance) leadChartInstance.destroy();
@@ -64,12 +64,11 @@ function Dashboard() {
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-            {/* KPI Row */}
             <div className="kpi-row">
                 <div className="card kpi-card-simple">
                     <div>
                         <div className="kpi-card-label">Học viên chính thức</div>
-                        <div className="kpi-card-number">{totalStudents || 18}</div>
+                        <div className="kpi-card-number">{metrics.totalStudents}</div>
                     </div>
                     <div className="kpi-card-circle-icon purple">
                         <i className="fa-solid fa-user-graduate"></i>
@@ -78,7 +77,7 @@ function Dashboard() {
                 <div className="card kpi-card-simple">
                     <div>
                         <div className="kpi-card-label">Lớp học hoạt động</div>
-                        <div className="kpi-card-number">{activeClassesCount}</div>
+                        <div className="kpi-card-number">{metrics.activeClassesCount}</div>
                     </div>
                     <div className="kpi-card-circle-icon pink">
                         <i className="fa-solid fa-school"></i>
@@ -87,7 +86,7 @@ function Dashboard() {
                 <div className="card kpi-card-simple">
                     <div>
                         <div className="kpi-card-label">Doanh thu tháng này</div>
-                        <div className="kpi-card-number">245M</div>
+                        <div className="kpi-card-number">{metrics.revenue}</div>
                     </div>
                     <div className="kpi-card-circle-icon blue">
                         <i className="fa-solid fa-sack-dollar"></i>
@@ -95,7 +94,6 @@ function Dashboard() {
                 </div>
             </div>
 
-            {/* Khu vực đồ thị đồ họa */}
             <div className="my-portal-grid" style={{ gridTemplateColumns: '1fr 1fr' }}>
                 <div className="card" style={{ padding: '24px' }}>
                     <h3 style={{ fontSize: '1.1rem', marginBottom: '16px' }}>

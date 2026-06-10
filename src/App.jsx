@@ -1,24 +1,38 @@
 import React, { useState } from 'react';
 import Sidebar from './components/Sidebar';
 import Topbar from './components/Topbar';
-import { useAuth } from './context/AuthContext'; // Gọi Hook phân quyền
+import { useAuth } from './context/AuthContext';
 
-// Import tất cả các trang nội dung
+import LandingPage from './pages/LandingPage';
+import Auth from './pages/Auth';
 import Dashboard from './pages/Dashboard';
 import CRM from './pages/CRM';
 import SalesRating from './pages/SalesRating';
 import StudentCare from './pages/StudentCare';
 import TeacherProfile from './pages/TeacherProfile';
 import Classes from './pages/Classes';
-import CourseSyllabus from './pages/CourseSyllabus';
+import ClassReports from './pages/ClassReports';
 import FinanceLog from './pages/FinanceLog';
 import MyClassActive from './pages/MyClassActive';
+import TeachingAssistantProfile from './pages/TeachingAssistantProfile';
+import AccountProfile from './pages/AccountProfile'; // Trang cấu hình tài khoản mới
 import './styles/globals.css';
 
 function App() {
-    const { currentRole } = useAuth(); // Lấy vai trò đồng bộ từ Context toàn cục
+    const { currentUser, currentRole } = useAuth();
+
+    // viewMode: 'landing' (Trang chủ) | 'auth' (Đăng nhập/Đăng ký)
+    const [viewMode, setViewMode] = useState('landing');
     const [activeTab, setActiveTab] = useState('my-class');
     const [theme, setTheme] = useState('light');
+
+    // XỬ LÝ ĐIỀU HƯỚNG KHI CHƯA ĐĂNG NHẬP
+    if (!currentUser) {
+        if (viewMode === 'landing') {
+            return <LandingPage onLoginClick={() => setViewMode('auth')} />;
+        }
+        return <Auth onBack={() => setViewMode('landing')} />;
+    }
 
     const toggleTheme = () => {
         const nextTheme = theme === 'light' ? 'dark' : 'light';
@@ -28,24 +42,22 @@ function App() {
 
     return (
         <div className="app-container">
-            {/* Sidebar giờ đây sẽ tự động đồng bộ theo AuthContext */}
-            <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} currentRole={currentRole} />
-
+            <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', marginLeft: '260px' }}>
-                <Topbar
-                    theme={theme}
-                    toggleTheme={toggleTheme}
-                    activeTab={activeTab}
-                />
+                <Topbar theme={theme} toggleTheme={toggleTheme} activeTab={activeTab} setActiveTab={setActiveTab} />
 
                 <main className="main-content" style={{ marginTop: '80px', padding: '32px' }}>
+                    {activeTab === 'classes' && <Classes />}
+                    {activeTab === 'reports' && <ClassReports />}
                     {activeTab === 'my-class' && <MyClassActive />}
+                    {activeTab === 'profile' && <AccountProfile />} {/* Tab Quản lý tài khoản */}
+
+
                     {activeTab === 'crm' && currentRole !== 'teacher' && <CRM />}
                     {activeTab === 'sales' && currentRole !== 'teacher' && <SalesRating />}
                     {activeTab === 'care' && currentRole !== 'teacher' && <StudentCare />}
                     {activeTab === 'teachers' && currentRole !== 'teacher' && <TeacherProfile />}
-                    {activeTab === 'classes' && currentRole !== 'teacher' && <Classes />}
-                    {activeTab === 'curriculum' && currentRole !== 'teacher' && <CourseSyllabus />}
+                    {activeTab === 'tas' && currentRole !== 'teacher' && <TeachingAssistantProfile />}
                     {activeTab === 'finance' && currentRole !== 'teacher' && <FinanceLog />}
                 </main>
             </div>

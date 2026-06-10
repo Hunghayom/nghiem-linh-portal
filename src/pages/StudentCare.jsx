@@ -1,23 +1,27 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import axios from 'axios';
+
+const api = axios.create({ baseURL: 'http://localhost:8081/api' });
 
 function StudentCare() {
-    const [students, setStudents] = useState([
-        { id: 1, name: 'Trần Thị Minh Anh', email: 'tranminhanh@gmail.com', phone: '0977284534', course: 'HSK1', class: 'HSK1-357-6', status: 'Đang học', birthday: '12/06/2002' },
-        { id: 2, name: 'Hoàng Long Ngự', email: 'shuzushi@gmail.com', phone: '0913102500', course: 'HSK1', class: 'HSK1-357-6', status: 'Đang học', birthday: '21/05/2001' },
-    ]);
-    const [tickets, setTickets] = useState([{ id: 'TK-01', studentName: 'Nguyễn Hoàng Nam', details: 'Học viên xin đổi ca học sang tối 2-4-6 do trùng lịch.', status: 'Đang xử lý' }]);
+    const [students, setStudents] = useState([]);
+    const [tickets, setTickets] = useState([]);
     const [newTicket, setNewTicket] = useState({ studentName: '', details: '' });
 
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState('all');
 
-    // Modals state
     const [showModal, setShowModal] = useState(false);
-    const [modalMode, setModalMode] = useState('add'); // 'add', 'edit', 'view'
+    const [modalMode, setModalMode] = useState('add');
     const [currentStudent, setCurrentStudent] = useState({ name: '', phone: '', email: '', course: 'HSK1', class: '', status: 'Đang học', birthday: '' });
 
+    useEffect(() => {
+        api.get('/students').then(res => setStudents(res.data)).catch(() => console.log('Chưa có học viên trên CSDL.'));
+        api.get('/tickets').then(res => setTickets(res.data)).catch(() => console.log('Chưa có ticket trên CSDL.'));
+    }, []);
+
     const filteredStudents = students.filter(s => {
-        const matchName = s.name.toLowerCase().includes(searchTerm.toLowerCase());
+        const matchName = s.name && s.name.toLowerCase().includes(searchTerm.toLowerCase());
         const matchStatus = statusFilter === 'all' || s.status === statusFilter;
         return matchName && matchStatus;
     });
@@ -28,53 +32,60 @@ function StudentCare() {
         setShowModal(true);
     };
 
-    const handleSaveStudent = () => {
+    const handleSaveStudent = async () => {
         if (modalMode === 'add') {
-            setStudents([{ ...currentStudent, id: Date.now() }, ...students]);
-            alert('Thêm học viên thành công!');
+            try {
+                const res = await api.post('/students', currentStudent);
+                setStudents([res.data, ...students]);
+                alert('Thêm học viên mới thành công!');
+            } catch (error) { alert('Lỗi: CSDL không phản hồi.'); }
         } else if (modalMode === 'edit') {
-            setStudents(students.map(s => s.id === currentStudent.id ? currentStudent : s));
-            alert('Lưu thay đổi thành công!');
+            try {
+                const res = await api.put(`/students/${currentStudent.id}`, currentStudent);
+                setStudents(students.map(s => s.id === currentStudent.id ? res.data : s));
+                alert('Lưu thay đổi thành công!');
+            } catch (error) { alert('Lỗi cập nhật CSDL.'); }
         }
         setShowModal(false);
     };
 
-    const handleDelete = (id) => {
+    const handleDelete = async (id) => {
         if (window.confirm('Xác nhận xóa học viên này khỏi danh sách lớp?')) {
-            setStudents(students.filter(s => s.id !== id));
+            try {
+                await api.delete(`/students/${id}`);
+                setStudents(students.filter(s => s.id !== id));
+            } catch (error) { alert('Lỗi xóa CSDL.'); }
         }
     };
 
-    const handleCreateTicket = (e) => {
+    const handleCreateTicket = async (e) => {
         e.preventDefault();
-        setTickets([{ id: 'TK-' + Date.now(), ...newTicket, status: 'Đang xử lý' }, ...tickets]);
-        setNewTicket({ studentName: '', details: '' });
-        alert('Tạo ticket phản ánh thành công!');
+        try {
+            const res = await api.post('/tickets', { ...newTicket, status: 'Đang xử lý' });
+            setTickets([res.data, ...tickets]);
+            setNewTicket({ studentName: '', details: '' });
+            alert('Tạo ticket phản ánh thành công!');
+        } catch (error) { alert('Lỗi tạo ticket!'); }
     };
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-            {/* HỘP SỐ LIỆU KPI TỔNG HỢP (Khôi phục) */}
             <div className="kpi-row">
                 <div className="card kpi-card-simple"><div><div className="kpi-card-label">Tổng học viên</div><div className="kpi-card-number">{students.length}</div></div><div className="kpi-card-circle-icon purple"><i className="fa-solid fa-graduation-cap"></i></div></div>
                 <div className="card kpi-card-simple"><div><div className="kpi-card-label">Đang học</div><div className="kpi-card-number" style={{ color: 'var(--success)' }}>{students.filter(s => s.status === 'Đang học').length}</div></div><div className="kpi-card-circle-icon success" style={{ backgroundColor: 'var(--success-light)', color: 'var(--success)' }}><i className="fa-solid fa-user-check"></i></div></div>
                 <div className="card kpi-card-simple"><div><div className="kpi-card-label">Bảo lưu / Học lại</div><div className="kpi-card-number" style={{ color: 'var(--warning-text)' }}>{students.filter(s => s.status !== 'Đang học').length}</div></div><div className="kpi-card-circle-icon warning" style={{ backgroundColor: 'var(--warning-light)', color: 'var(--warning-text)' }}><i className="fa-solid fa-user-clock"></i></div></div>
             </div>
 
-            {/* KHU VỰC TÌM KIẾM, LỌC VÀ BẢNG DANH SÁCH (Hình 3.1 & 3.2) */}
             <div className="card" style={{ padding: '0', overflow: 'hidden' }}>
                 <div style={{ padding: '20px 24px', display: 'flex', gap: '16px', alignItems: 'center', borderBottom: '1px solid var(--border-color)' }}>
                     <input type="text" className="form-control" placeholder="🔍 Tìm kiếm tên, SĐT..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} style={{ flex: 1 }} />
                     <select className="form-control" style={{ width: '200px' }} value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
-                        <option value="all">Tất cả trạng thái</option>
-                        <option value="Đang học">Đang học</option>
-                        <option value="Bảo lưu">Bảo lưu</option>
-                        <option value="Học lại">Học lại</option>
+                        <option value="all">Tất cả trạng thái</option><option value="Đang học">Đang học</option><option value="Bảo lưu">Bảo lưu</option><option value="Học lại">Học lại</option>
                     </select>
                 </div>
 
                 <div style={{ padding: '16px 24px', backgroundColor: '#f0fdf4', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontWeight: '700', color: 'var(--text-main)' }}>📚 HSK1-357-6 (GV: Đoàn Đăng Khoa) <span style={{ backgroundColor: '#dbeafe', color: '#1e40af', padding: '2px 8px', borderRadius: '50px', fontSize: '0.75rem', marginLeft: '8px' }}>{filteredStudents.length} học viên</span></span>
+                    <span style={{ fontWeight: '700', color: 'var(--text-main)' }}>📚 Danh sách học viên hệ thống <span style={{ backgroundColor: '#dbeafe', color: '#1e40af', padding: '2px 8px', borderRadius: '50px', fontSize: '0.75rem', marginLeft: '8px' }}>{filteredStudents.length} học viên</span></span>
                     <button className="btn" onClick={() => openModal('add')} style={{ padding: '6px 12px', backgroundColor: 'white', border: '1px solid var(--border-color)', borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: '700' }}><i className="fa-solid fa-plus text-primary"></i> Thêm học viên</button>
                 </div>
 
@@ -88,13 +99,11 @@ function StudentCare() {
                         </tr>
                     </thead>
                     <tbody>
+                        {filteredStudents.length === 0 && <tr><td colSpan="7" style={{ textAlign: 'center', padding: '20px', color: 'var(--text-muted)' }}>Chưa có học viên nào trong CSDL.</td></tr>}
                         {filteredStudents.map((s, index) => (
                             <tr key={s.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
                                 <td style={{ padding: '16px 24px', color: 'var(--text-muted)' }}>{index + 1}</td>
-                                <td style={{ padding: '16px 24px' }}>
-                                    <strong style={{ display: 'block', color: 'var(--text-main)', fontSize: '0.9rem' }}>{s.name}</strong>
-                                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{s.email}</span>
-                                </td>
+                                <td style={{ padding: '16px 24px' }}><strong style={{ display: 'block', color: 'var(--text-main)', fontSize: '0.9rem' }}>{s.name}</strong><span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{s.email}</span></td>
                                 <td style={{ padding: '16px 24px', color: 'var(--text-muted)' }}>{s.phone}</td>
                                 <td style={{ padding: '16px 24px', color: 'var(--primary)', fontWeight: '700' }}>{s.course}</td>
                                 <td style={{ padding: '16px 24px', color: 'var(--text-muted)', fontSize: '0.85rem' }}>{s.class}</td>
@@ -112,7 +121,6 @@ function StudentCare() {
                 </table>
             </div>
 
-            {/* KHÔI PHỤC VÙNG TICKETS VÀ BIRTHDAY TỪ GIAO DIỆN CŨ */}
             <div className="my-portal-grid" style={{ gridTemplateColumns: '1.5fr 1fr' }}>
                 <div className="card" style={{ padding: '24px' }}>
                     <h3 style={{ fontSize: '1.1rem', marginBottom: '20px' }}><i className="fa-solid fa-ticket-alt" style={{ color: 'var(--primary)', marginRight: '8px' }}></i> Ticket & Phản ánh (Tạo / Xử lý)</h3>
@@ -122,6 +130,7 @@ function StudentCare() {
                         <button type="submit" className="btn btn-primary" style={{ padding: '10px 20px', borderRadius: '8px', background: 'var(--primary)', color: 'white', cursor: 'pointer', fontWeight: '700' }}>Tạo</button>
                     </form>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                        {tickets.length === 0 && <span style={{ color: '#cbd5e1' }}>Chưa có ticket trên CSDL.</span>}
                         {tickets.map(t => (
                             <div key={t.id} style={{ padding: '12px', borderRadius: '8px', border: '1px solid var(--border-color)', backgroundColor: 'var(--bg-app)' }}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: '700' }}><span>{t.studentName}</span><span style={{ color: 'var(--warning-text)' }}>{t.status}</span></div>
@@ -130,21 +139,8 @@ function StudentCare() {
                         ))}
                     </div>
                 </div>
-
-                <div className="card" style={{ padding: '24px' }}>
-                    <h3 style={{ fontSize: '1.1rem', marginBottom: '16px', color: '#ec4899' }}><i className="fa-solid fa-cake-candles" style={{ marginRight: '8px' }}></i> Sinh nhật trong tháng</h3>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', backgroundColor: 'rgba(236,72,153,0.05)', padding: '12px', borderRadius: '8px', border: '1px dashed rgba(236,72,153,0.3)' }}>
-                        <div style={{ fontSize: '0.85rem' }}>
-                            <strong>Hoàng Long Ngự</strong>
-                            <span style={{ backgroundColor: '#ec4899', color: 'white', fontSize: '0.65rem', marginLeft: '6px', padding: '2px 6px', borderRadius: '4px', fontWeight: '700' }}>Sắp tới 🎂</span>
-                            <p style={{ color: 'var(--text-muted)', fontSize: '0.75rem', marginTop: '4px' }}>Sinh nhật: 21/05/2001</p>
-                        </div>
-                        <button className="btn" style={{ background: '#ec4899', color: 'white', padding: '6px 12px', borderRadius: '6px', fontSize: '0.75rem', cursor: 'pointer' }}><i className="fa-solid fa-paper-plane"></i> Chúc mừng</button>
-                    </div>
-                </div>
             </div>
 
-            {/* MODAL THÊM / SỬA HỌC VIÊN */}
             {showModal && (
                 <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
                     <div className="card" style={{ width: '500px', backgroundColor: 'white', padding: '24px', borderRadius: '12px' }}>

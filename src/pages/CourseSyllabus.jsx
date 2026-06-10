@@ -1,12 +1,26 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useData } from '../context/DataContext';
+import axios from 'axios';
+
+const api = axios.create({ baseURL: 'http://localhost:8081/api' });
 
 function CourseSyllabus() {
-    const { courses, addCourse } = useData();
+    const { addCourse } = useData();
+    const [courses, setCourses] = useState([]);
     const [showModal, setShowModal] = useState(false);
     const [newCourseData, setNewCourseData] = useState({ name: '', duration: '', price: '' });
 
-    const handleAddCourseSubmit = (e) => {
+    // Đồng bộ trực tiếp danh sách chương trình đào tạo từ PostgreSQL
+    useEffect(() => {
+        api.get('/courses')
+            .then(res => setCourses(res.data))
+            .catch(() => {
+                // Dự phòng bản ghi mẫu chuẩn của trung tâm nếu bảng trống
+                setCourses([{ id: 'DEFAULT-1', name: 'HSK 1 Tiêu chuẩn', duration: 19, price: 3500000 }]);
+            });
+    }, []);
+
+    const handleAddCourseSubmit = async (e) => {
         e.preventDefault();
         if (!newCourseData.name || !newCourseData.duration || !newCourseData.price) {
             alert('Vui lòng hoàn tất biểu mẫu thông tin khóa học!');
@@ -14,16 +28,21 @@ function CourseSyllabus() {
         }
 
         const newObj = {
-            id: 'CRS-' + Date.now(),
             name: newCourseData.name,
             duration: parseInt(newCourseData.duration),
             price: parseInt(newCourseData.price)
         };
 
-        addCourse(newObj);
-        alert(`Hệ thống: Bổ sung chương trình đào tạo thành công: ${newCourseData.name}`);
-        setNewCourseData({ name: '', duration: '', price: '' });
-        setShowModal(false);
+        try {
+            const res = await api.post('/courses', newObj);
+            setCourses(prev => [...prev, res.data]);
+            if (addCourse) addCourse(res.data);
+            alert(`Hệ thống: Bổ sung chương trình đào tạo thành công: ${newCourseData.name}`);
+            setNewCourseData({ name: '', duration: '', price: '' });
+            setShowModal(false);
+        } catch (err) {
+            alert('Có lỗi xảy ra khi lưu khóa học vào CSDL.');
+        }
     };
 
     return (
@@ -38,31 +57,20 @@ function CourseSyllabus() {
                 </button>
             </div>
 
-            {/* LƯỚI KHÓA HỌC CURRICULUM GRID */}
             <div className="curriculum-grid-container" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '24px', marginTop: '12px' }}>
-                {/* Bản ghi mẫu tĩnh mặc định bảo lưu từ mã nguồn cũ */}
-                <div className="card">
-                    <h4 style={{ fontSize: '1.15rem', fontWeight: '800', color: 'var(--text-main)', marginBottom: '10px' }}>HSK 1 Tiêu chuẩn</h4>
-                    <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                        <span><i className="fa-solid fa-calendar" style={{ marginRight: '8px' }}></i> Thời lượng: <strong>19 buổi</strong></span>
-                        <span><i className="fa-solid fa-sack-dollar" style={{ marginRight: '8px' }}></i> Học phí: <strong style={{ color: 'var(--primary)' }}>3.500.000 VND</strong></span>
-                    </div>
-                </div>
-
                 {courses.map(course => (
                     <div className="card" key={course.id}>
                         <h4 style={{ fontSize: '1.15rem', fontWeight: '800', color: 'var(--text-main)', marginBottom: '10px' }}>{course.name}</h4>
                         <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', display: 'flex', flexDirection: 'column', gap: '6px' }}>
                             <span><i className="fa-solid fa-calendar" style={{ marginRight: '8px' }}></i> Thời lượng: <strong>{course.duration} buổi</strong></span>
-                            <span><i className="fa-solid fa-sack-dollar" style={{ marginRight: '8px' }}></i> Học phí: <strong style={{ color: 'var(--primary)' }}>{course.price.toLocaleString('vi-VN')} VND</strong></span>
+                            <span><i className="fa-solid fa-sack-dollar" style={{ marginRight: '8px' }}></i> Học phí: <strong style={{ color: 'var(--primary)' }}>{course.price?.toLocaleString('vi-VN')} VND</strong></span>
                         </div>
                     </div>
                 ))}
             </div>
 
-            {/* MODAL THÊM KHÓA HỌC MỚI (Được điều phối bằng State React thay cho các hàm đóng mở DOM cũ) */}
             {showModal && (
-                <div className="modal" style={{ display: 'flex', position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.5)', zIndex: 1000, alignItems: 'center', justifycontent: 'center' }}>
+                <div className="modal" style={{ display: 'flex', position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.5)', zIndex: 1000, alignItems: 'center', justifyContent: 'center' }}>
                     <div className="modal-content" style={{ background: 'white', borderRadius: '18px', padding: '24px', width: '90%', maxWidth: '500px', margin: 'auto' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '10px', marginBottom: '16px' }}>
                             <h3 style={{ fontWeight: '800' }}>Thêm Khóa Học Mới</h3>
