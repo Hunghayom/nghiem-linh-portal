@@ -33,8 +33,16 @@ function Sidebar({ activeTab, setActiveTab }) {
                     />
                 </div>
 
-                <div className="robot-brand-text" style={{ fontSize: '1.05rem', fontWeight: '800', color: 'var(--text-main)', marginTop: '12px', wordBreak: 'break-word', padding: '0 8px', textAlign: 'center' }}>
-                    {currentUser?.name || 'Nghiêm Linh User'}
+                {/* THAY ĐỔI TẠI ĐÂY: ÉP CHỮ CHIA ĐỀU THÀNH 2 DÒNG CÂN ĐỐI */}
+                <div className="robot-brand-text" style={{ fontSize: '1.1rem', fontWeight: '800', color: 'var(--text-main)', marginTop: '12px', padding: '0 8px', textAlign: 'center', lineHeight: '1.4' }}>
+                    {currentUser?.name ? (
+                        currentUser.name
+                    ) : (
+                        <>
+                            <span style={{ display: 'block' }}>Ngoại ngữ</span>
+                            <span style={{ display: 'block', color: 'var(--primary)' }}>Nghiêm Linh</span>
+                        </>
+                    )}
                 </div>
 
                 <div className="user-title-badge" style={{ marginTop: '8px' }}>
