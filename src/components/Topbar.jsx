@@ -20,7 +20,8 @@ function Topbar({ activeTab, theme, toggleTheme }) {
         'sales': { title: 'Quản lý Sale', subtitle: 'Bảng xếp hạng doanh số & đội ngũ chuyên viên tư vấn' },
         'care': { title: 'Chăm sóc Học viên', subtitle: 'Xử lý ticket khiếu nại, hỗ trợ học vụ và nhắc nhở sinh nhật' },
         'teachers': { title: 'Thông tin Giáo viên', subtitle: 'Quản lý thông tin cơ bản, học vấn và trạng thái công tác của nhân sự' },
-        'finance': { title: 'Tài chính & Doanh thu', subtitle: 'Theo dõi học phí phải thu, hóa đơn và lịch sử đóng học' }
+        'finance': { title: 'Tài chính & Doanh thu', subtitle: 'Theo dõi học phí phải thu, hóa đơn và lịch sử đóng học' },
+        'assistant': { title: 'Giáo viên trợ giảng', subtitle: 'Hệ thống hỗ trợ quản lý lớp học dành riêng cho Trợ giảng' },
     };
 
     const currentHeader = pageTitles[activeTab] || { title: 'Hệ thống Quản trị', subtitle: 'Ngoại ngữ Nghiêm Linh' };
