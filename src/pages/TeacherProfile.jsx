@@ -9,41 +9,72 @@ const api = axios.create({
 function TeacherProfile() {
     const { teachers, addTeacher } = useData();
 
+    // Khởi tạo state cho form tiếp nhận giáo viên
     const [formInput, setFormInput] = useState({
-        name: '', email: '', phone: '', experience: '', fee: '', address: '', status: 'Đang dạy'
+        name: '',
+        email: '',
+        phone: '',
+        experience: '',
+        fee: '',
+        address: '',
+        status: 'Đang dạy'
     });
 
+    // Hàm xử lý thay đổi dữ liệu trong form
     const handleInputChange = (e) => {
-        setFormInput({ ...formInput, [e.target.name]: e.target.value });
+        const { name, value } = e.target;
+        setFormInput(prev => ({
+            ...prev,
+            [name]: value
+        }));
     };
 
+    // Hàm xử lý khi bấm Lưu thông tin
     const handleSaveTeacher = async (e) => {
         e.preventDefault();
+
+        // Kiểm tra dữ liệu đầu vào
         if (!formInput.name || !formInput.phone) {
-            alert('Vui lòng nhập ít nhất Họ tên và Số điện thoại!');
+            alert('Hệ thống: Vui lòng nhập đầy đủ Họ tên và Số điện thoại của giáo viên!');
             return;
         }
 
-        // Chỉ gọi API 1 lần duy nhất thông qua DataContext
-        const result = await addTeacher(formInput);
+        try {
+            // Gọi hàm addTeacher từ DataContext (đã xử lý logic API ở file DataContext.jsx)
+            const result = await addTeacher({
+                ...formInput,
+                role: 'teacher',
+                username: formInput.phone,
+                password: '123456'
+            });
 
-        // Kiểm tra kết quả trả về
-        if (result && result.success) {
-            alert('Hệ thống: Lưu thông tin hồ sơ giáo viên thành công!');
-            setFormInput({ name: '', email: '', phone: '', experience: '', fee: '', address: '', status: 'Đang dạy' });
-        } else {
-            alert('Lỗi: Không thể lưu thông tin giáo viên. Có thể SĐT (Tài khoản) này đã tồn tại!');
+            if (result && result.success) {
+                alert('Hệ thống: Lưu thông tin hồ sơ giáo viên thành công vào cơ sở dữ liệu!');
+                // Reset form sau khi lưu thành công
+                setFormInput({
+                    name: '', email: '', phone: '', experience: '', fee: '', address: '', status: 'Đang dạy'
+                });
+            } else {
+                alert('Lỗi hệ thống: Không thể lưu thông tin giáo viên. Vui lòng kiểm tra lại kết nối hoặc thông tin SĐT!');
+            }
+        } catch (error) {
+            console.error("Lỗi khi gọi API lưu giáo viên:", error);
+            alert('Lỗi nghiêm trọng: Có sự cố khi kết nối tới Server.');
         }
     };
 
+    // Hàm xử lý xóa giáo viên
     const handleDeleteTeacher = async (id) => {
-        if (window.confirm('Bạn có chắc chắn muốn xóa giáo viên này khỏi hệ thống?')) {
+        // Hộp thoại xác nhận trước khi xóa
+        if (window.confirm('Cảnh báo: Bạn có chắc chắn muốn xóa giáo viên này khỏi hệ thống không? Hành động này không thể hoàn tác.')) {
             try {
                 await api.delete(`/users/${id}`);
-                alert('Đã xóa giáo viên thành công!');
-                window.location.reload(); // Tải lại để cập nhật danh sách
+                alert('Hệ thống: Đã xóa thông tin giáo viên thành công!');
+                // Tải lại trang để cập nhật danh sách (hoặc có thể dùng setTeachers từ context)
+                window.location.reload();
             } catch (error) {
-                alert('Lỗi khi xóa dữ liệu.');
+                console.error("Lỗi khi xóa giáo viên:", error);
+                alert('Lỗi: Không thể xóa giáo viên. Vui lòng đảm bảo Backend đã có API DELETE /users/{id}');
             }
         }
     };
@@ -66,29 +97,73 @@ function TeacherProfile() {
                 <form onSubmit={handleSaveTeacher} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '20px' }}>
                     <div>
                         <label className="form-label">Họ và tên (*)</label>
-                        <input type="text" name="name" className="form-control" placeholder="Ví dụ: Điệp Mạnh" value={formInput.name} onChange={handleInputChange} required />
+                        <input
+                            type="text"
+                            name="name"
+                            className="form-control"
+                            placeholder="Ví dụ: Điệp Mạnh"
+                            value={formInput.name}
+                            onChange={handleInputChange}
+                            required
+                        />
                     </div>
                     <div>
                         <label className="form-label">Email cá nhân</label>
-                        <input type="email" name="email" className="form-control" placeholder="teacher@nghiemlinh.edu.vn" value={formInput.email} onChange={handleInputChange} />
+                        <input
+                            type="email"
+                            name="email"
+                            className="form-control"
+                            placeholder="teacher@nghiemlinh.edu.vn"
+                            value={formInput.email}
+                            onChange={handleInputChange}
+                        />
                     </div>
                     <div>
                         <label className="form-label">Số điện thoại (*)</label>
-                        <input type="text" name="phone" className="form-control" placeholder="09xxxxxxxx" value={formInput.phone} onChange={handleInputChange} required />
+                        <input
+                            type="text"
+                            name="phone"
+                            className="form-control"
+                            placeholder="09xxxxxxxx"
+                            value={formInput.phone}
+                            onChange={handleInputChange}
+                            required
+                        />
                     </div>
 
                     <div style={{ gridColumn: 'span 2' }}>
                         <label className="form-label">Học vấn & Kinh nghiệm giảng dạy</label>
-                        <input type="text" name="experience" className="form-control" placeholder="Chứng chỉ HSK, thâm niên dạy..." value={formInput.experience} onChange={handleInputChange} />
+                        <input
+                            type="text"
+                            name="experience"
+                            className="form-control"
+                            placeholder="Chứng chỉ HSK, thâm niên dạy..."
+                            value={formInput.experience}
+                            onChange={handleInputChange}
+                        />
                     </div>
                     <div>
                         <label className="form-label">Mức học phí (VNĐ) / Buổi dạy</label>
-                        <input type="number" name="fee" className="form-control" placeholder="350000" value={formInput.fee} onChange={handleInputChange} />
+                        <input
+                            type="number"
+                            name="fee"
+                            className="form-control"
+                            placeholder="350000"
+                            value={formInput.fee}
+                            onChange={handleInputChange}
+                        />
                     </div>
 
                     <div style={{ gridColumn: 'span 2' }}>
                         <label className="form-label">Nơi ở hiện tại (CCCD)</label>
-                        <input type="text" name="address" className="form-control" placeholder="Địa chỉ thường trú..." value={formInput.address} onChange={handleInputChange} />
+                        <input
+                            type="text"
+                            name="address"
+                            className="form-control"
+                            placeholder="Địa chỉ thường trú..."
+                            value={formInput.address}
+                            onChange={handleInputChange}
+                        />
                     </div>
                     <div>
                         <label className="form-label">Trạng thái nhân sự</label>
