@@ -24,7 +24,7 @@ function Topbar({ activeTab, theme, toggleTheme }) {
         'assistant': { title: 'Giáo viên trợ giảng', subtitle: 'Hệ thống hỗ trợ quản lý lớp học dành riêng cho Trợ giảng' },
     };
 
-    const currentHeader = pageTitles[activeTab] ;
+    const currentHeader = pageTitles[activeTab] || { title: 'Giáo viên trợ giảng', subtitle: 'Hệ thống hỗ trợ quản lý lớp học dành riêng cho Trợ giảng' };
 
     return (
         <header className="topbar">
