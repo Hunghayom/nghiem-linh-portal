@@ -69,11 +69,14 @@ export const DataProvider = ({ children }) => {
         }
     };
 
+    // Tìm đoạn này trong DataContext.jsx
     return (
         <DataContext.Provider value={{
-            classes, addClass,
-            customers, addCustomer,
-            teachers, addTeacher
+            teachers,
+            addTeacher,
+            setTeachers, // <-- THÊM DÒNG NÀY VÀO ĐÂY
+            customers,
+            addCustomer
         }}>
             {children}
         </DataContext.Provider>
