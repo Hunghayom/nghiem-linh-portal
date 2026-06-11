@@ -213,54 +213,64 @@ function CRM() {
 
             <div className="card" style={{ padding: '24px' }}>
 
-                {/* THANH ĐIỀU KHIỂN CỐ ĐỊNH (STICKY) */}
+                {/* THANH ĐIỀU KHIỂN CỐ ĐỊNH (STICKY) - ĐÃ CĂN TRÁI */}
                 <div style={{
-                    position: 'sticky', top: '0', zIndex: '10', backgroundColor: '#ffffff',
+                    position: 'sticky', top: '0', zIndex: '20', backgroundColor: '#ffffff',
                     border: '1px solid #e2e8f0', borderRadius: '10px', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
                     padding: '16px', marginBottom: '20px', display: 'flex', flexDirection: 'column', gap: '12px'
                 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        {/* Thu gọn hiển thị icon */}
-                        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                            {!isPanelExpanded && optionalColumnsConfig.map(col => (
-                                <i key={col.key} className={`fa-solid ${col.icon}`}
-                                    style={{
-                                        fontSize: '1.1rem',
-                                        color: visibleColumns[col.key] ? '#4f46e5' : '#cbd5e1',
-                                        transition: 'color 0.2s'
-                                    }} title={col.label}></i>
-                            ))}
-                        </div>
+                    <div style={{ display: 'flex', justifyContent: 'flex-start', alignItems: 'center', gap: '15px' }}>
+                        {/* Nút chính: Tùy chỉnh cột */}
+                        <button
+                            type="button"
+                            onClick={() => setIsPanelExpanded(!isPanelExpanded)}
+                            style={{
+                                background: isPanelExpanded ? '#4f46e5' : '#ffffff',
+                                color: isPanelExpanded ? 'white' : '#4f46e5',
+                                border: '1px solid #4f46e5', padding: '6px 16px', borderRadius: '6px',
+                                fontSize: '0.8rem', fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px'
+                            }}
+                        >
+                            <i className={`fa-solid ${isPanelExpanded ? 'fa-cog' : 'fa-list-ul'}`}></i>
+                            <span>{isPanelExpanded ? 'Đóng bảng chọn' : 'Tùy chỉnh cột'}</span>
+                        </button>
 
-                        <div style={{ display: 'flex', gap: '10px' }}>
-                            {isPanelExpanded && (
-                                <>
-                                    <button onClick={() => setVisibleColumns(Object.keys(visibleColumns).reduce((acc, key) => ({ ...acc, [key]: true }), {}))} style={{ fontSize: '0.7rem', padding: '4px 8px', cursor: 'pointer' }}>Chọn tất cả</button>
-                                    <button onClick={() => setVisibleColumns(Object.keys(visibleColumns).reduce((acc, key) => ({ ...acc, [key]: false }), {}))} style={{ fontSize: '0.7rem', padding: '4px 8px', cursor: 'pointer' }}>Bỏ chọn</button>
-                                </>
-                            )}
-                            <button
-                                type="button"
-                                onClick={() => setIsPanelExpanded(!isPanelExpanded)}
-                                style={{
-                                    background: '#4f46e5', color: 'white', border: 'none',
-                                    padding: '6px 16px', borderRadius: '6px', fontSize: '0.8rem', fontWeight: '800', cursor: 'pointer'
-                                }}
-                            >
-                                {isPanelExpanded ? 'Đóng bảng chọn' : 'Tùy chỉnh cột'}
-                            </button>
-                        </div>
+                        {/* Nút Chọn/Bỏ chọn tất cả (Chỉ hiện khi mở rộng) */}
+                        {isPanelExpanded && (
+                            <div style={{ display: 'flex', gap: '8px' }}>
+                                <button onClick={() => setVisibleColumns(Object.keys(visibleColumns).reduce((acc, key) => ({ ...acc, [key]: true }), {}))}
+                                    style={{ fontSize: '0.75rem', padding: '6px 12px', cursor: 'pointer', border: '1px solid #d1d5db', borderRadius: '6px', background: '#f3f4f6' }}>
+                                    Chọn tất cả
+                                </button>
+                                <button onClick={() => setVisibleColumns(Object.keys(visibleColumns).reduce((acc, key) => ({ ...acc, [key]: false }), {}))}
+                                    style={{ fontSize: '0.75rem', padding: '6px 12px', cursor: 'pointer', border: '1px solid #d1d5db', borderRadius: '6px', background: '#f3f4f6' }}>
+                                    Bỏ chọn
+                                </button>
+                            </div>
+                        )}
+
+                        {/* Icon thu gọn (khi đóng bảng) */}
+                        {!isPanelExpanded && (
+                            <div style={{ display: 'flex', gap: '8px', color: '#64748b' }}>
+                                {optionalColumnsConfig.filter(col => visibleColumns[col.key]).map(col => (
+                                    <i key={col.key} className={`fa-solid ${col.icon}`} title={col.label} style={{ fontSize: '0.9rem' }}></i>
+                                ))}
+                            </div>
+                        )}
                     </div>
 
-                    {/* Danh sách chọn cột */}
+                    {/* Danh sách hộp kiểm Checkbox */}
                     {isPanelExpanded && (
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '10px', borderTop: '1px solid #f1f5f9', paddingTop: '12px' }}>
+                        <div style={{
+                            display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: '10px',
+                            borderTop: '1px solid #f1f5f9', paddingTop: '12px'
+                        }}>
                             {optionalColumnsConfig.map(col => (
                                 <label key={col.key} style={{
                                     display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 10px',
                                     backgroundColor: visibleColumns[col.key] ? '#eef2ff' : '#f8fafc',
                                     border: visibleColumns[col.key] ? '1px solid #4f46e5' : '1px solid #e2e8f0',
-                                    borderRadius: '6px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: '600',
+                                    borderRadius: '6px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: '700',
                                     color: visibleColumns[col.key] ? '#4f46e5' : '#475569'
                                 }}>
                                     <input type="checkbox" checked={visibleColumns[col.key]} onChange={() => toggleColumn(col.key)} />
