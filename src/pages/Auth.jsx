@@ -6,7 +6,9 @@ function Auth() {
 
     // authMode có 4 trạng thái: 'login', 'register', 'forgot_request', 'forgot_verify'
     const [authMode, setAuthMode] = useState('login');
-    const [formData, setFormData] = useState({ name: '', username: '', password: '', confirmPassword: '', otp: '', role: 'teacher' });
+    const [formData, setFormData] = useState({
+        name: '', username: '', email: '', password: '', confirmPassword: '', otp: '', role: 'teacher'
+    });
     const [errorMsg, setErrorMsg] = useState('');
 
     // State đếm ngược 5 giây
@@ -33,6 +35,9 @@ function Auth() {
             }
             if (formData.password !== formData.confirmPassword) {
                 return setErrorMsg('Mật khẩu xác nhận không khớp!');
+            }
+            if (!formData.email) {
+                return setErrorMsg('Vui lòng nhập Email!');
             }
 
             const res = await register(formData.name, formData.username, formData.password, formData.role);
@@ -129,13 +134,17 @@ function Auth() {
                                     <select name="role" className="form-control" value={formData.role} onChange={handleInputChange} style={{ fontWeight: '600' }}>
                                         <option value="teacher">Giáo viên (Teacher Portal)</option>
                                         <option value="sales">Chuyên viên Tư vấn (Sales)</option>
-                                        <option value="manager">Quản lý Phân hệ</option>
                                     </select>
                                 </div>
                                 <div>
                                     <label style={{ fontSize: '0.8rem', fontWeight: '700', color: 'var(--text-muted)', display: 'block', marginBottom: '6px' }}>HỌ VÀ TÊN (*)</label>
                                     <input type="text" name="name" className="form-control" placeholder="Ví dụ: Đoàn Đăng Khoa" value={formData.name} onChange={handleInputChange} />
                                 </div>
+                                <div>
+                                    <label style={{ fontSize: '0.8rem', fontWeight: '700', color: 'var(--text-muted)', display: 'block', marginBottom: '6px' }}>EMAIL (*)</label>
+                                    <input type="email" name="email" className="form-control" placeholder="example@email.com" value={formData.email} onChange={handleInputChange} required />
+                                </div>
+
                             </>
                         )}
 

@@ -37,9 +37,9 @@ export const AuthProvider = ({ children }) => {
     };
 
     // Gọi API Đăng ký thật
-    const register = async (name, username, password, role) => {
+    const register = async (name, username, password, role, email) => {
         try {
-            await api.post('/auth/register', { name, username, password, role });
+            await api.post('/auth/register', { name, username, password, role, email });
             return { success: true };
         } catch (error) {
             return { success: false, message: error.response?.data?.message || 'Tên đăng nhập đã tồn tại!' };

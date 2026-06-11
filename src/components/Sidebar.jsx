@@ -55,9 +55,14 @@ function Sidebar({ activeTab, setActiveTab }) {
 
             <nav className="sidebar-menu">
                 <div className="menu-label">Giảng dạy</div>
-                <div className={`menu-item ${activeTab === 'classes' ? 'active' : ''}`} onClick={() => setActiveTab('classes')}>
-                    <i className="fa-solid fa-school"></i><span>Quản lý Lớp học</span>
-                </div>
+
+                {/* Chỉ Admin hoặc Quản lý mới thấy mục Quản lý Lớp học */}
+                {currentRole !== 'teacher' && (
+                    <div className={`menu-item ${activeTab === 'classes' ? 'active' : ''}`} onClick={() => setActiveTab('classes')}>
+                        <i className="fa-solid fa-school"></i><span>Quản lý Lớp học</span>
+                    </div>
+                )}
+
                 <div className={`menu-item ${activeTab === 'reports' ? 'active' : ''}`} onClick={() => setActiveTab('reports')}>
                     <i className="fa-solid fa-square-poll-vertical"></i><span>Báo cáo Lớp học</span>
                 </div>
