@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react'; // Đảm bảo có useEffect
+
 import Sidebar from './components/Sidebar';
 import Topbar from './components/Topbar';
 import { useAuth } from './context/AuthContext';
@@ -23,7 +24,16 @@ function App() {
 
     // viewMode: 'landing' (Trang chủ) | 'auth' (Đăng nhập/Đăng ký)
     const [viewMode, setViewMode] = useState('landing');
-    const [activeTab, setActiveTab] = useState('my-class');
+    // 1. Lấy tab từ bộ nhớ, nếu mới đăng nhập (chưa có) thì để rỗng '' (Trang trắng)
+    const [activeTab, setActiveTab] = useState(() => {
+        const savedTab = localStorage.getItem('current_tab');
+        return savedTab || '';
+    });
+
+    // 2. Tự động lưu lại tên Tab mỗi khi bạn nhấp chuyển trang
+    useEffect(() => {
+        localStorage.setItem('current_tab', activeTab);
+    }, [activeTab]);
     const [theme, setTheme] = useState('light');
 
     // XỬ LÝ ĐIỀU HƯỚNG KHI CHƯA ĐĂNG NHẬP
