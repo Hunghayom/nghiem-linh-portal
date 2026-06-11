@@ -7,7 +7,7 @@ const api = axios.create({
 });
 
 function TeacherProfile() {
-    const { teachers, addTeacher, setTeachers } = useData();
+    const { teachers, setTeachers } = useData();
 
     const [formInput, setFormInput] = useState({ name: '', email: '', phone: '', experience: '', fee: '', address: '', status: 'Đang dạy' });
 
@@ -33,22 +33,27 @@ function TeacherProfile() {
 
     const handleSaveTeacher = async (e) => {
         e.preventDefault();
-        if (!formInput.name || !formInput.phone) {
-            alert('Vui lòng nhập Họ tên và Số điện thoại!');
-            return;
-        }
-        const result = await addTeacher(formInput);
-        if (result && result.success) {
+        if (!formInput.name || !formInput.phone) return alert('Vui lòng nhập Họ tên và Số điện thoại!');
+        try {
+            const res = await api.post('/auth/register', {
+                ...formInput,
+                username: formInput.phone,
+                password: '123',
+                role: 'teacher'
+            });
+            setTeachers(prev => [res.data, ...prev]);
             alert('Hệ thống: Lưu thông tin hồ sơ giáo viên thành công!');
             setFormInput({ name: '', email: '', phone: '', experience: '', fee: '', address: '', status: 'Đang dạy' });
+        } catch (err) {
+            alert('Lỗi tạo giáo viên: ' + (err.response?.data?.message || err.message));
         }
     };
 
     const handleSaveEdit = async () => {
         if (!selectedTeacher || !selectedTeacher.id) return alert('Lỗi: Không xác định được ID giáo viên!');
         try {
-            await api.put(`/users/${selectedTeacher.id}`, selectedTeacher);
-            setTeachers(teachers.map(t => t.id === selectedTeacher.id ? selectedTeacher : t));
+            const res = await api.put(`/users/${selectedTeacher.id}`, selectedTeacher);
+            setTeachers(prev => prev.map(t => t.id === selectedTeacher.id ? res.data : t));
             setSelectedTeacher(null);
             setIsEditing(false);
             alert('Hệ thống: Cập nhật thông tin thành công!');
@@ -58,11 +63,11 @@ function TeacherProfile() {
     };
 
     const handleDeleteTeacher = async (id) => {
-        if (!id) return alert('Lỗi: Dữ liệu này không có ID hợp lệ để xóa!');
+        if (!id) return;
         if (window.confirm('Cảnh báo: Bạn có chắc chắn muốn xóa giáo viên này khỏi hệ thống?')) {
             try {
                 await api.delete(`/users/${id}`);
-                setTeachers(teachers.filter(t => t.id !== id));
+                setTeachers(prev => prev.filter(t => t.id !== id));
                 if (selectedTeacher && selectedTeacher.id === id) setSelectedTeacher(null);
                 alert('Hệ thống: Đã xóa giáo viên thành công!');
             } catch (err) {
@@ -73,7 +78,6 @@ function TeacherProfile() {
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '28px', animation: 'fadeIn 0.3s ease-out' }}>
-
             {/* FORM TIẾP NHẬN GIÁO VIÊN */}
             <div className="card" style={{ padding: '32px' }}>
                 <h3 style={{ fontSize: '1.15rem', fontWeight: '800', marginBottom: '24px', color: 'var(--primary)', borderLeft: '4px solid var(--primary)', paddingLeft: '12px' }}>
@@ -100,16 +104,9 @@ function TeacherProfile() {
 
             {/* BẢNG DỮ LIỆU */}
             <div className="card" style={{ padding: '24px' }}>
-                <div style={{
-                    position: 'sticky', top: '0', zIndex: '20', backgroundColor: '#ffffff',
-                    border: '1px solid #e2e8f0', borderRadius: '10px', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
-                    padding: '16px', marginBottom: '20px', display: 'flex', flexDirection: 'column', gap: '12px'
-                }}>
+                <div style={{ position: 'sticky', top: '0', zIndex: '20', backgroundColor: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '10px', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', padding: '16px', marginBottom: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
                     <div style={{ display: 'flex', justifyContent: 'flex-start', alignItems: 'center', gap: '15px' }}>
-                        <button type="button" onClick={() => setIsPanelExpanded(!isPanelExpanded)} style={{
-                            background: isPanelExpanded ? '#4f46e5' : '#ffffff', color: isPanelExpanded ? 'white' : '#4f46e5',
-                            border: '1px solid #4f46e5', padding: '6px 16px', borderRadius: '6px', fontSize: '0.8rem', fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px'
-                        }}>
+                        <button type="button" onClick={() => setIsPanelExpanded(!isPanelExpanded)} style={{ background: isPanelExpanded ? '#4f46e5' : '#ffffff', color: isPanelExpanded ? 'white' : '#4f46e5', border: '1px solid #4f46e5', padding: '6px 16px', borderRadius: '6px', fontSize: '0.8rem', fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
                             <i className={`fa-solid ${isPanelExpanded ? 'fa-cog' : 'fa-list-ul'}`}></i>
                             <span>{isPanelExpanded ? 'Đóng bảng chọn' : 'Tùy chỉnh cột'}</span>
                         </button>
@@ -117,11 +114,6 @@ function TeacherProfile() {
                             <div style={{ display: 'flex', gap: '8px' }}>
                                 <button onClick={() => setVisibleColumns(Object.keys(visibleColumns).reduce((acc, key) => ({ ...acc, [key]: true }), {}))} style={{ fontSize: '0.75rem', padding: '6px 12px', cursor: 'pointer', border: '1px solid #d1d5db', borderRadius: '6px', background: '#f3f4f6' }}>Chọn tất cả</button>
                                 <button onClick={() => setVisibleColumns(Object.keys(visibleColumns).reduce((acc, key) => ({ ...acc, [key]: false }), {}))} style={{ fontSize: '0.75rem', padding: '6px 12px', cursor: 'pointer', border: '1px solid #d1d5db', borderRadius: '6px', background: '#f3f4f6' }}>Bỏ chọn</button>
-                            </div>
-                        )}
-                        {!isPanelExpanded && (
-                            <div style={{ display: 'flex', gap: '8px', color: '#64748b' }}>
-                                {optionalColumnsConfig.filter(col => visibleColumns[col.key]).map(col => <i key={col.key} className={`fa-solid ${col.icon}`} title={col.label} style={{ fontSize: '0.9rem' }}></i>)}
                             </div>
                         )}
                     </div>

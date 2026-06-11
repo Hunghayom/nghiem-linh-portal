@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
+import { useData } from '../context/DataContext';
 import axios from 'axios';
 
 const api = axios.create({
@@ -6,7 +7,9 @@ const api = axios.create({
 });
 
 function TeachingAssistantProfile() {
-    const [tas, setTas] = useState([]);
+    // ĐÃ ĐỒNG BỘ: Sử dụng useData thay vì useState độc lập
+    const { tas, setTas } = useData();
+
     const [formInput, setFormInput] = useState({ name: '', email: '', phone: '', education: '', level: '' });
 
     // --- STATE QUẢN LÝ MODAL CHI TIẾT & CHỈNH SỬA ---
@@ -24,66 +27,57 @@ function TeachingAssistantProfile() {
         { key: 'level', label: 'Trình độ', icon: 'fa-award' }
     ];
 
-    useEffect(() => {
-        api.get('/users/role/ta')
-            .then(res => setTas(res.data))
-            .catch(() => console.log('Chưa có danh sách TA trên CSDL.'));
-    }, []);
-
     const toggleColumn = (key) => setVisibleColumns(prev => ({ ...prev, [key]: !prev[key] }));
 
     const handleSaveTA = async (e) => {
         e.preventDefault();
-        if (!formInput.name || !formInput.phone) {
-            alert('Vui lòng nhập Họ tên và Số điện thoại!');
-            return;
-        }
+        if (!formInput.name || !formInput.phone) return alert('Vui lòng nhập Họ tên và Số điện thoại!');
 
         try {
             const res = await api.post('/auth/register', {
-                name: formInput.name, email: formInput.email, phone: formInput.phone,
-                education: formInput.education, level: formInput.level,
-                username: formInput.phone, password: '123', role: 'ta'
+                ...formInput,
+                username: formInput.phone,
+                password: '123',
+                role: 'ta'
             });
-
-            setTas([...tas, { ...res.data, education: formInput.education, level: formInput.level }]);
+            const newTA = { ...res.data, education: formInput.education, level: formInput.level };
+            setTas(prev => [newTA, ...prev]);
             setFormInput({ name: '', email: '', phone: '', education: '', level: '' });
             alert('Hệ thống: Lưu thông tin hồ sơ Trợ giảng thành công!');
         } catch (error) {
-            alert(`Lỗi: Không thể tạo Trợ giảng. ${error.response?.data?.message || ''}`);
+            alert(`Lỗi: Không thể tạo Trợ giảng. ${error.response?.data?.message || error.message}`);
         }
     };
 
     const handleSaveEdit = async () => {
         if (!selectedTA || !selectedTA.id) return alert('Lỗi: Không xác định được ID trợ giảng!');
         try {
-            await api.put(`/users/${selectedTA.id}`, selectedTA);
-            setTas(tas.map(t => t.id === selectedTA.id ? selectedTA : t));
+            const res = await api.put(`/users/${selectedTA.id}`, selectedTA);
+            setTas(prev => prev.map(t => t.id === selectedTA.id ? selectedTA : t));
             setSelectedTA(null);
             setIsEditing(false);
-            alert('Hệ thống: Cập nhật thông tin trợ giảng thành công!');
+            alert('Cập nhật thông tin trợ giảng thành công!');
         } catch (err) {
             alert(`Lỗi cập nhật: ${err.response?.data?.message || err.message}`);
         }
     };
 
     const handleDeleteTA = async (id) => {
-        if (!id) return alert('Lỗi: Dữ liệu này không có ID hợp lệ để xóa!');
+        if (!id) return;
         if (window.confirm('Cảnh báo: Bạn có chắc chắn muốn xóa trợ giảng này khỏi hệ thống?')) {
             try {
                 await api.delete(`/users/${id}`);
-                setTas(tas.filter(t => t.id !== id));
+                setTas(prev => prev.filter(t => t.id !== id));
                 if (selectedTA && selectedTA.id === id) setSelectedTA(null);
                 alert('Đã xóa trợ giảng thành công!');
             } catch (err) {
-                alert(`Lỗi xóa dữ liệu (Mã: ${err.response?.status}): ${err.response?.data?.message || err.message}`);
+                alert(`Lỗi xóa dữ liệu: ${err.response?.data?.message || err.message}`);
             }
         }
     };
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', animation: 'fadeIn 0.3s ease-out' }}>
-
             {/* FORM TIẾP NHẬN TRỢ GIẢNG */}
             <div className="card" style={{ padding: '32px' }}>
                 <h3 style={{ fontSize: '1.25rem', fontWeight: '800', marginBottom: '24px', color: '#10b981', borderBottom: '1px solid var(--border-color)', paddingBottom: '16px' }}>
@@ -102,16 +96,9 @@ function TeachingAssistantProfile() {
             </div>
 
             <div className="card" style={{ padding: '24px' }}>
-                <div style={{
-                    position: 'sticky', top: '0', zIndex: '20', backgroundColor: '#ffffff',
-                    border: '1px solid #e2e8f0', borderRadius: '10px', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
-                    padding: '16px', marginBottom: '20px', display: 'flex', flexDirection: 'column', gap: '12px'
-                }}>
+                <div style={{ position: 'sticky', top: '0', zIndex: '20', backgroundColor: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '10px', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', padding: '16px', marginBottom: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
                     <div style={{ display: 'flex', justifyContent: 'flex-start', alignItems: 'center', gap: '15px' }}>
-                        <button type="button" onClick={() => setIsPanelExpanded(!isPanelExpanded)} style={{
-                            background: isPanelExpanded ? '#10b981' : '#ffffff', color: isPanelExpanded ? 'white' : '#10b981',
-                            border: '1px solid #10b981', padding: '6px 16px', borderRadius: '6px', fontSize: '0.8rem', fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px'
-                        }}>
+                        <button type="button" onClick={() => setIsPanelExpanded(!isPanelExpanded)} style={{ background: isPanelExpanded ? '#10b981' : '#ffffff', color: isPanelExpanded ? 'white' : '#10b981', border: '1px solid #10b981', padding: '6px 16px', borderRadius: '6px', fontSize: '0.8rem', fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
                             <i className={`fa-solid ${isPanelExpanded ? 'fa-cog' : 'fa-list-ul'}`}></i>
                             <span>{isPanelExpanded ? 'Đóng bảng chọn' : 'Tùy chỉnh cột'}</span>
                         </button>
@@ -119,11 +106,6 @@ function TeachingAssistantProfile() {
                             <div style={{ display: 'flex', gap: '8px' }}>
                                 <button onClick={() => setVisibleColumns(Object.keys(visibleColumns).reduce((acc, key) => ({ ...acc, [key]: true }), {}))} style={{ fontSize: '0.75rem', padding: '6px 12px', cursor: 'pointer', border: '1px solid #d1d5db', borderRadius: '6px', background: '#f3f4f6' }}>Chọn tất cả</button>
                                 <button onClick={() => setVisibleColumns(Object.keys(visibleColumns).reduce((acc, key) => ({ ...acc, [key]: false }), {}))} style={{ fontSize: '0.75rem', padding: '6px 12px', cursor: 'pointer', border: '1px solid #d1d5db', borderRadius: '6px', background: '#f3f4f6' }}>Bỏ chọn</button>
-                            </div>
-                        )}
-                        {!isPanelExpanded && (
-                            <div style={{ display: 'flex', gap: '8px', color: '#64748b' }}>
-                                {optionalColumnsConfig.filter(col => visibleColumns[col.key]).map(col => <i key={col.key} className={`fa-solid ${col.icon}`} title={col.label} style={{ fontSize: '0.9rem' }}></i>)}
                             </div>
                         )}
                     </div>
@@ -153,8 +135,8 @@ function TeachingAssistantProfile() {
                             </tr>
                         </thead>
                         <tbody>
-                            {tas.length === 0 && <tr><td colSpan="7" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}><i className="fa-solid fa-inbox" style={{ fontSize: '2rem', marginBottom: '10px', display: 'block' }}></i>Chưa có trợ giảng trong hệ thống.</td></tr>}
-                            {tas.map((t, idx) => (
+                            {tas && tas.length === 0 && <tr><td colSpan="7" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}><i className="fa-solid fa-inbox" style={{ fontSize: '2rem', marginBottom: '10px', display: 'block' }}></i>Chưa có trợ giảng trong hệ thống.</td></tr>}
+                            {tas && tas.map((t, idx) => (
                                 <tr key={t.id || idx} style={{ borderBottom: '1px solid var(--border-color)', backgroundColor: 'white' }}>
                                     <td style={{ padding: '16px 24px', fontWeight: '700' }}>{idx + 1}</td>
                                     <td style={{ padding: '16px' }}>

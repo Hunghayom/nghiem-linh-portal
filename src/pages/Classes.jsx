@@ -40,21 +40,27 @@ function Classes() {
 
     const handleCreateClass = async (e) => {
         e.preventDefault();
-        if (!formClass.name || !formClass.sessionFee) {
-            alert('Vui lòng điền Tên lớp học và cấu hình Học phí!');
+        if (!formClass.name) {
+            alert('Vui lòng điền Tên lớp học!');
             return;
         }
 
         const newClassObj = {
             classCode: formClass.name,
-            teacher: formClass.teacher ? (formClass.teacher + (currentRole === 'admin' ? ' (admin)' : '')) : '',
+            teacher: formClass.teacher,
+            teacherName: formClass.teacher, // Backup tên biến cho Spring Boot
             ta: formClass.ta,
+            teachingAssistant: formClass.ta, // Backup tên biến cho Spring Boot
             classType: formClass.classType,
             level: formClass.level,
-            totalSessions: parseInt(formClass.totalSessions),
-            scheduleTime: formClass.scheduleTime || '20:00 - 21:30',
-            startDate: formClass.startDate || '2026-03-10',
-            sessionFee: parseInt(formClass.sessionFee),
+            courseLevel: formClass.level, // Backup tên biến cho Spring Boot
+
+            // XỬ LÝ LỖI NaN (Cực kỳ quan trọng để ko sập Java)
+            totalSessions: parseInt(formClass.totalSessions) || 0,
+            sessionFee: parseInt(formClass.sessionFee) || 0,
+
+            scheduleTime: formClass.scheduleTime || 'Chưa rõ',
+            startDate: formClass.startDate ? new Date(formClass.startDate).toISOString().split('T')[0] : null,
             padletUrl: formClass.padletUrl
         };
 
@@ -64,7 +70,7 @@ function Classes() {
             alert(`Hệ thống: Khởi tạo thành công lớp học ${formClass.name}!`);
             setFormClass({ name: '', teacher: '', ta: '', padletUrl: '', classType: '', level: '', sessionFee: '', startDate: '', totalSessions: '', scheduleTime: '' });
         } else {
-            alert('Lỗi tạo lớp! Vui lòng kiểm tra lại kết nối hoặc dữ liệu nhập.');
+            alert('Lỗi tạo lớp! CSDL từ chối lưu. Chi tiết lỗi: ' + result.message);
         }
     };
 

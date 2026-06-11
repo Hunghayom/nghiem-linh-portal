@@ -13,7 +13,7 @@ export function DataProvider({ children }) {
     const [tas, setTas] = useState([]);
     const [classes, setClasses] = useState([]);
 
-    // 1. Chỉ nạp dữ liệu TỪNG MỤC một lần duy nhất khi khởi tạo hệ thống (Có dependency array [] trống)
+    // CHẶN LẶP: Chỉ gọi API đúng 1 lần duy nhất khi nạp ứng dụng nhờ dependency array []
     useEffect(() => {
         // Nạp khách hàng CRM
         api.get('/customers')
@@ -24,9 +24,13 @@ export function DataProvider({ children }) {
         api.get('/users/role/teacher')
             .then(res => setTeachers(res.data))
             .catch(() => {
-                // Dự phòng nếu API role trả về cấu hình khác
-                api.get('/users').then(res => setTeachers(res.data.filter(u => u.role === 'teacher'))).catch(() => {});
+                api.get('/users').then(res => setTeachers(res.data.filter(u => u.role === 'teacher'))).catch(() => { });
             });
+
+        // Nạp trợ giảng
+        api.get('/users/role/ta')
+            .then(res => setTas(res.data))
+            .catch(() => { });
 
         // Nạp lớp học
         api.get('/classes')
@@ -34,8 +38,8 @@ export function DataProvider({ children }) {
             .catch(() => console.log("Chưa thể nạp dữ liệu lớp học."));
     }, []);
 
-    // 2. Các hàm thêm mới dữ liệu an toàn (Dùng callback để tránh lỗi lặp / mất dữ liệu cũ)
     const addCustomer = async (newCustomer) => {
+        // Tránh ghi đè trùng lặp dữ liệu bằng callback state ngắn gọn
         setCustomers(prev => [newCustomer, ...prev]);
         return { success: true };
     };
@@ -55,23 +59,24 @@ export function DataProvider({ children }) {
         }
     };
 
-    const addClass = (newClass) => {
-        setClasses(prev => [newClass, ...prev]);
+    // NÂNG CẤP: Gửi dữ liệu lớp học thực tế lên Backend Render
+    const addClass = async (classData) => {
+        try {
+            const res = await api.post('/classes', classData);
+            setClasses(prev => [res.data, ...prev]);
+            return { success: true };
+        } catch (err) {
+            console.error(err);
+            return { success: false, message: err.message };
+        }
     };
 
     return (
-        <DataContext.Provider value={{ 
-            customers, 
-            setCustomers, 
-            addCustomer,
-            teachers, 
-            setTeachers, 
-            addTeacher,
-            classes, 
-            setClasses, 
-            addClass,
-            tas,
-            setTas
+        <DataContext.Provider value={{
+            customers, setCustomers, addCustomer,
+            teachers, setTeachers, addTeacher,
+            classes, setClasses, addClass,
+            tas, setTas
         }}>
             {children}
         </DataContext.Provider>
@@ -80,8 +85,6 @@ export function DataProvider({ children }) {
 
 export const useData = () => {
     const context = useContext(DataContext);
-    if (!context) {
-        throw new Error('useData phải được đặt bên trong DataProvider');
-    }
+    if (!context) throw new Error('useData phải được đặt bên trong DataProvider');
     return context;
 };
