@@ -7,24 +7,26 @@ const api = axios.create({
 });
 
 function TeachingAssistantProfile() {
-    // ĐÃ ĐỒNG BỘ: Sử dụng useData thay vì useState độc lập
     const { tas, setTas } = useData();
 
-    const [formInput, setFormInput] = useState({ name: '', email: '', phone: '', education: '', level: '' });
+    // ĐÃ BỔ SUNG TRƯỜNG "notes"
+    const [formInput, setFormInput] = useState({ name: '', email: '', phone: '', education: '', level: '', notes: '' });
 
-    // --- STATE QUẢN LÝ MODAL CHI TIẾT & CHỈNH SỬA ---
     const [selectedTA, setSelectedTA] = useState(null);
     const [isEditing, setIsEditing] = useState(false);
 
     const [isPanelExpanded, setIsPanelExpanded] = useState(false);
+
+    // Đã thêm notes vào cấu hình cột
     const [visibleColumns, setVisibleColumns] = useState({
-        email: true, education: true, level: true
+        email: true, education: true, level: true, notes: false
     });
 
     const optionalColumnsConfig = [
         { key: 'email', label: 'Email', icon: 'fa-envelope' },
         { key: 'education', label: 'Học vấn', icon: 'fa-graduation-cap' },
-        { key: 'level', label: 'Trình độ', icon: 'fa-award' }
+        { key: 'level', label: 'Trình độ', icon: 'fa-award' },
+        { key: 'notes', label: 'Ghi chú', icon: 'fa-note-sticky' }
     ];
 
     const toggleColumn = (key) => setVisibleColumns(prev => ({ ...prev, [key]: !prev[key] }));
@@ -40,9 +42,9 @@ function TeachingAssistantProfile() {
                 password: '123',
                 role: 'ta'
             });
-            const newTA = { ...res.data, education: formInput.education, level: formInput.level };
-            setTas(prev => [newTA, ...prev]);
-            setFormInput({ name: '', email: '', phone: '', education: '', level: '' });
+            // SỬ DỤNG DỮ LIỆU CHUẨN TỪ BACKEND TRẢ VỀ (res.data) THAY VÌ HIỂN THỊ ẢO
+            setTas(prev => [res.data, ...prev]);
+            setFormInput({ name: '', email: '', phone: '', education: '', level: '', notes: '' });
             alert('Hệ thống: Lưu thông tin hồ sơ Trợ giảng thành công!');
         } catch (error) {
             alert(`Lỗi: Không thể tạo Trợ giảng. ${error.response?.data?.message || error.message}`);
@@ -53,7 +55,8 @@ function TeachingAssistantProfile() {
         if (!selectedTA || !selectedTA.id) return alert('Lỗi: Không xác định được ID trợ giảng!');
         try {
             const res = await api.put(`/users/${selectedTA.id}`, selectedTA);
-            setTas(prev => prev.map(t => t.id === selectedTA.id ? selectedTA : t));
+            // SỬ DỤNG DỮ LIỆU CHUẨN TỪ BACKEND TRẢ VỀ ĐỂ XÓA BỎ HIỆN TƯỢNG BÓNG MA
+            setTas(prev => prev.map(t => t.id === selectedTA.id ? res.data : t));
             setSelectedTA(null);
             setIsEditing(false);
             alert('Cập nhật thông tin trợ giảng thành công!');
@@ -78,17 +81,23 @@ function TeachingAssistantProfile() {
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', animation: 'fadeIn 0.3s ease-out' }}>
-            {/* FORM TIẾP NHẬN TRỢ GIẢNG */}
             <div className="card" style={{ padding: '32px' }}>
                 <h3 style={{ fontSize: '1.25rem', fontWeight: '800', marginBottom: '24px', color: '#10b981', borderBottom: '1px solid var(--border-color)', paddingBottom: '16px' }}>
                     <i className="fa-solid fa-user-graduate" style={{ marginRight: '8px' }}></i> Thông tin Trợ giảng
                 </h3>
                 <form onSubmit={handleSaveTA} style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px' }}>
-                    <div><label style={{ fontSize: '0.8rem', fontWeight: '700' }}>Họ & Tên</label><input type="text" className="form-control" value={formInput.name} onChange={(e) => setFormInput({ ...formInput, name: e.target.value })} required /></div>
-                    <div><label style={{ fontSize: '0.8rem', fontWeight: '700' }}>Email</label><input type="email" className="form-control" value={formInput.email} onChange={(e) => setFormInput({ ...formInput, email: e.target.value })} /></div>
-                    <div><label style={{ fontSize: '0.8rem', fontWeight: '700' }}>Số điện thoại (Zalo)</label><input type="text" className="form-control" value={formInput.phone} onChange={(e) => setFormInput({ ...formInput, phone: e.target.value })} required /></div>
+                    <div><label style={{ fontSize: '0.8rem', fontWeight: '700' }}>Họ & Tên (*)</label><input type="text" className="form-control" value={formInput.name} onChange={(e) => setFormInput({ ...formInput, name: e.target.value })} required /></div>
+                    <div><label style={{ fontSize: '0.8rem', fontWeight: '700' }}>Email cá nhân</label><input type="email" className="form-control" value={formInput.email} onChange={(e) => setFormInput({ ...formInput, email: e.target.value })} /></div>
+                    <div><label style={{ fontSize: '0.8rem', fontWeight: '700' }}>Số điện thoại (*)</label><input type="text" className="form-control" value={formInput.phone} onChange={(e) => setFormInput({ ...formInput, phone: e.target.value })} required /></div>
                     <div style={{ gridColumn: 'span 2' }}><label style={{ fontSize: '0.8rem', fontWeight: '700' }}>Học vấn</label><input type="text" className="form-control" value={formInput.education} onChange={(e) => setFormInput({ ...formInput, education: e.target.value })} placeholder="VD: Sinh viên ĐH Ngoại ngữ..." /></div>
                     <div><label style={{ fontSize: '0.8rem', fontWeight: '700' }}>Trình độ</label><input type="text" className="form-control" value={formInput.level} onChange={(e) => setFormInput({ ...formInput, level: e.target.value })} placeholder="VD: HSK 5, IELTS 7.0..." /></div>
+
+                    {/* BỔ SUNG GHI CHÚ */}
+                    <div style={{ gridColumn: 'span 3' }}>
+                        <label style={{ fontSize: '0.8rem', fontWeight: '700' }}>Ghi chú thêm về nhân sự</label>
+                        <textarea className="form-control" rows="2" value={formInput.notes} onChange={(e) => setFormInput({ ...formInput, notes: e.target.value })} placeholder="Thông tin cần lưu ý..." style={{ resize: 'vertical' }}></textarea>
+                    </div>
+
                     <div style={{ gridColumn: 'span 3', display: 'flex', justifyContent: 'flex-end', marginTop: '8px' }}>
                         <button type="submit" className="btn btn-primary" style={{ padding: '12px 32px', fontWeight: '800', backgroundColor: '#10b981', color: 'white', borderRadius: '8px', cursor: 'pointer' }}>LƯU THÔNG TIN TRỢ GIẢNG</button>
                     </div>
@@ -131,11 +140,12 @@ function TeachingAssistantProfile() {
                                 {visibleColumns.email && <th style={{ padding: '16px' }}>EMAIL</th>}
                                 {visibleColumns.education && <th style={{ padding: '16px' }}>HỌC VẤN</th>}
                                 {visibleColumns.level && <th style={{ padding: '16px' }}>TRÌNH ĐỘ</th>}
+                                {visibleColumns.notes && <th style={{ padding: '16px' }}>GHI CHÚ</th>}
                                 <th style={{ padding: '16px', textAlign: 'center' }}>THAO TÁC</th>
                             </tr>
                         </thead>
                         <tbody>
-                            {tas && tas.length === 0 && <tr><td colSpan="7" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}><i className="fa-solid fa-inbox" style={{ fontSize: '2rem', marginBottom: '10px', display: 'block' }}></i>Chưa có trợ giảng trong hệ thống.</td></tr>}
+                            {tas && tas.length === 0 && <tr><td colSpan="8" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>Chưa có trợ giảng trong hệ thống.</td></tr>}
                             {tas && tas.map((t, idx) => (
                                 <tr key={t.id || idx} style={{ borderBottom: '1px solid var(--border-color)', backgroundColor: 'white' }}>
                                     <td style={{ padding: '16px 24px', fontWeight: '700' }}>{idx + 1}</td>
@@ -148,6 +158,7 @@ function TeachingAssistantProfile() {
                                     {visibleColumns.email && <td style={{ padding: '16px' }}>{t.email || '---'}</td>}
                                     {visibleColumns.education && <td style={{ padding: '16px' }}>{t.education || '---'}</td>}
                                     {visibleColumns.level && <td style={{ padding: '16px' }}><span style={{ backgroundColor: '#f1f5f9', padding: '4px 12px', borderRadius: '50px', fontSize: '0.75rem', fontWeight: '800', color: '#475569' }}>{t.level || '---'}</span></td>}
+                                    {visibleColumns.notes && <td style={{ padding: '16px', maxWidth: '150px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={t.notes}>{t.notes || '---'}</td>}
                                     <td style={{ padding: '16px', textAlign: 'center' }}>
                                         <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
                                             <button onClick={() => { setSelectedTA({ ...t }); setIsEditing(true); }} title="Sửa" style={{ border: '1px solid #cbd5e1', background: '#f1f5f9', color: '#475569', width: '32px', height: '32px', borderRadius: '50%', cursor: 'pointer' }}><i className="fa-solid fa-pen"></i></button>
@@ -161,7 +172,6 @@ function TeachingAssistantProfile() {
                 </div>
             </div>
 
-            {/* MODAL XEM CHI TIẾT & CHỈNH SỬA HỒ SƠ TRỢ GIẢNG */}
             {selectedTA && (
                 <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
                     <div className="card" style={{ width: '550px', backgroundColor: 'white', padding: '24px', borderRadius: '12px', maxHeight: '90vh', overflowY: 'auto' }}>
@@ -190,6 +200,11 @@ function TeachingAssistantProfile() {
                             <div style={{ gridColumn: 'span 2' }}>
                                 <label style={{ fontSize: '0.8rem', fontWeight: '700', color: 'var(--text-muted)' }}>Trình độ</label>
                                 {isEditing ? <input className="form-control" value={selectedTA.level || ''} onChange={(e) => setSelectedTA({ ...selectedTA, level: e.target.value })} /> : <div style={{ fontWeight: '600' }}>{selectedTA.level || '---'}</div>}
+                            </div>
+                            {/* BỔ SUNG TRƯỜNG GHI CHÚ TRONG CHI TIẾT */}
+                            <div style={{ gridColumn: 'span 2' }}>
+                                <label style={{ fontSize: '0.8rem', fontWeight: '700', color: 'var(--text-muted)' }}>Ghi chú thêm về nhân sự</label>
+                                {isEditing ? <textarea className="form-control" rows="2" value={selectedTA.notes || ''} onChange={(e) => setSelectedTA({ ...selectedTA, notes: e.target.value })} style={{ resize: 'vertical' }} /> : <div style={{ fontWeight: '600', whiteSpace: 'pre-wrap' }}>{selectedTA.notes || '---'}</div>}
                             </div>
                         </div>
 
