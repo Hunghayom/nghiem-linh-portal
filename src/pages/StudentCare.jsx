@@ -8,6 +8,7 @@ const api = axios.create({
 function StudentCare() {
     const [students, setStudents] = useState([]);
     const [tickets, setTickets] = useState([]);
+    const [classes, setClasses] = useState([]); // State lưu danh sách lớp học
     const [newTicket, setNewTicket] = useState({ studentName: '', details: '' });
 
     const [searchTerm, setSearchTerm] = useState('');
@@ -15,11 +16,17 @@ function StudentCare() {
 
     const [showModal, setShowModal] = useState(false);
     const [modalMode, setModalMode] = useState('add');
-    const [currentStudent, setCurrentStudent] = useState({ name: '', phone: '', email: '', course: 'HSK1', class: '', status: 'Đang học', birthday: '' });
+
+    // ĐÃ SỬA: Loại bỏ HSK1 mặc định, bổ sung trường teacher và đồng bộ classId
+    const [currentStudent, setCurrentStudent] = useState({
+        name: '', phone: '', email: '', course: '', classId: '', teacher: '', status: 'Đang học', birthday: ''
+    });
 
     useEffect(() => {
         api.get('/students').then(res => setStudents(res.data)).catch(() => console.log('Chưa có học viên trên CSDL.'));
         api.get('/tickets').then(res => setTickets(res.data)).catch(() => console.log('Chưa có ticket trên CSDL.'));
+        // Gọi thêm API lấy danh sách Lớp học để đưa vào form
+        api.get('/classes').then(res => setClasses(res.data)).catch(() => console.log('Chưa có dữ liệu lớp.'));
     }, []);
 
     const filteredStudents = students.filter(s => {
@@ -30,11 +37,33 @@ function StudentCare() {
 
     const openModal = (mode, student = null) => {
         setModalMode(mode);
-        setCurrentStudent(student ? { ...student } : { name: '', phone: '', email: '', course: 'HSK1', class: '', status: 'Đang học', birthday: '' });
+        setCurrentStudent(student ? { ...student } : { name: '', phone: '', email: '', course: '', classId: '', teacher: '', status: 'Đang học', birthday: '' });
         setShowModal(true);
     };
 
+    // HÀM XỬ LÝ THÔNG MINH: Tự động điền Khóa học & Giáo viên khi chọn Lớp
+    const handleClassChange = (e) => {
+        const selectedClassCode = e.target.value;
+        const selectedClassObj = classes.find(c => c.classCode === selectedClassCode);
+
+        if (selectedClassObj) {
+            setCurrentStudent({
+                ...currentStudent,
+                classId: selectedClassCode,
+                course: selectedClassObj.level || 'Chưa rõ',     // Tự động lấy Cấp độ khóa học
+                teacher: selectedClassObj.teacher || 'Chưa phân công' // Tự động lấy Giáo viên
+            });
+        } else {
+            setCurrentStudent({ ...currentStudent, classId: selectedClassCode, course: '', teacher: '' });
+        }
+    };
+
     const handleSaveStudent = async () => {
+        // Validation cơ bản
+        if (!currentStudent.name || !currentStudent.phone) {
+            return alert("Vui lòng điền tối thiểu Họ tên và Số điện thoại!");
+        }
+
         if (modalMode === 'add') {
             try {
                 const res = await api.post('/students', currentStudent);
@@ -107,8 +136,8 @@ function StudentCare() {
                                 <td style={{ padding: '16px 24px', color: 'var(--text-muted)' }}>{index + 1}</td>
                                 <td style={{ padding: '16px 24px' }}><strong style={{ display: 'block', color: 'var(--text-main)', fontSize: '0.9rem' }}>{s.name}</strong><span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{s.email}</span></td>
                                 <td style={{ padding: '16px 24px', color: 'var(--text-muted)' }}>{s.phone}</td>
-                                <td style={{ padding: '16px 24px', color: 'var(--primary)', fontWeight: '700' }}>{s.course}</td>
-                                <td style={{ padding: '16px 24px', color: 'var(--text-muted)', fontSize: '0.85rem' }}>{s.class}</td>
+                                <td style={{ padding: '16px 24px', color: 'var(--primary)', fontWeight: '700' }}>{s.course || '---'}</td>
+                                <td style={{ padding: '16px 24px', color: 'var(--text-muted)', fontSize: '0.85rem', fontWeight: '700' }}>{s.classId || s.class || '---'}</td>
                                 <td style={{ padding: '16px 24px' }}><span style={{ backgroundColor: s.status === 'Đang học' ? '#dcfce7' : '#fef3c7', color: s.status === 'Đang học' ? '#166534' : '#b45309', padding: '4px 10px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: '700' }}>{s.status}</span></td>
                                 <td style={{ padding: '16px 24px', textAlign: 'center' }}>
                                     <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
@@ -145,24 +174,57 @@ function StudentCare() {
 
             {showModal && (
                 <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-                    <div className="card" style={{ width: '500px', backgroundColor: 'white', padding: '24px', borderRadius: '12px' }}>
-                        <h3 style={{ fontWeight: '800', marginBottom: '20px', borderBottom: '1px solid var(--border-color)', paddingBottom: '12px' }}>
-                            {modalMode === 'add' ? 'Thêm học viên mới' : modalMode === 'edit' ? 'Chỉnh sửa thông tin học viên' : 'Hồ sơ học viên'}
+                    <div className="card" style={{ width: '650px', backgroundColor: 'white', padding: '28px', borderRadius: '16px' }}>
+                        <h3 style={{ fontWeight: '800', marginBottom: '24px', borderBottom: '2px solid var(--primary-light)', paddingBottom: '12px', color: 'var(--primary)' }}>
+                            <i className="fa-solid fa-user-graduate"></i> {modalMode === 'add' ? 'Tiếp nhận học viên mới' : modalMode === 'edit' ? 'Chỉnh sửa thông tin học viên' : 'Hồ sơ học viên chi tiết'}
                         </h3>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                            <div><label style={{ fontSize: '0.8rem', fontWeight: '700' }}>Họ tên</label><input className="form-control" value={currentStudent.name} onChange={e => setCurrentStudent({ ...currentStudent, name: e.target.value })} disabled={modalMode === 'view'} /></div>
-                            <div><label style={{ fontSize: '0.8rem', fontWeight: '700' }}>Số điện thoại</label><input className="form-control" value={currentStudent.phone} onChange={e => setCurrentStudent({ ...currentStudent, phone: e.target.value })} disabled={modalMode === 'view'} /></div>
-                            <div><label style={{ fontSize: '0.8rem', fontWeight: '700' }}>Ngày sinh</label><input type="text" className="form-control" placeholder="DD/MM/YYYY" value={currentStudent.birthday} onChange={e => setCurrentStudent({ ...currentStudent, birthday: e.target.value })} disabled={modalMode === 'view'} /></div>
-                            <div>
-                                <label style={{ fontSize: '0.8rem', fontWeight: '700' }}>Trạng thái</label>
-                                <select className="form-control" value={currentStudent.status} onChange={e => setCurrentStudent({ ...currentStudent, status: e.target.value })} disabled={modalMode === 'view'}>
-                                    <option value="Đang học">Đang học</option><option value="Bảo lưu">Bảo lưu</option><option value="Học lại">Học lại</option>
-                                </select>
+
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                            {/* Cột thông tin cá nhân */}
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                <h4 style={{ fontSize: '0.85rem', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '4px' }}>Thông tin cá nhân</h4>
+                                <div><label style={{ fontSize: '0.8rem', fontWeight: '700' }}>Họ tên (*)</label><input className="form-control" value={currentStudent.name} onChange={e => setCurrentStudent({ ...currentStudent, name: e.target.value })} disabled={modalMode === 'view'} required /></div>
+                                <div><label style={{ fontSize: '0.8rem', fontWeight: '700' }}>Số điện thoại (*)</label><input className="form-control" value={currentStudent.phone} onChange={e => setCurrentStudent({ ...currentStudent, phone: e.target.value })} disabled={modalMode === 'view'} required /></div>
+                                <div><label style={{ fontSize: '0.8rem', fontWeight: '700' }}>Ngày sinh</label><input type="date" className="form-control" value={currentStudent.birthday} onChange={e => setCurrentStudent({ ...currentStudent, birthday: e.target.value })} disabled={modalMode === 'view'} /></div>
+                                <div><label style={{ fontSize: '0.8rem', fontWeight: '700' }}>Email cá nhân</label><input type="email" className="form-control" value={currentStudent.email} onChange={e => setCurrentStudent({ ...currentStudent, email: e.target.value })} disabled={modalMode === 'view'} /></div>
+                            </div>
+
+                            {/* Cột thông tin đào tạo (Tự động điền) */}
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', backgroundColor: '#f8fafc', padding: '16px', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
+                                <h4 style={{ fontSize: '0.85rem', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '4px' }}>Xếp lớp & Đào tạo</h4>
+
+                                <div>
+                                    <label style={{ fontSize: '0.8rem', fontWeight: '800', color: 'var(--primary)' }}>Xếp vào Lớp học</label>
+                                    <select className="form-control" value={currentStudent.classId || ''} onChange={handleClassChange} disabled={modalMode === 'view'} style={{ border: '1px solid var(--primary)', backgroundColor: 'var(--primary-light)' }}>
+                                        <option value="">-- Chọn lớp học --</option>
+                                        {classes.map(c => (
+                                            <option key={c.id} value={c.classCode}>{c.classCode} - Khóa: {c.level}</option>
+                                        ))}
+                                    </select>
+                                </div>
+
+                                <div>
+                                    <label style={{ fontSize: '0.8rem', fontWeight: '700', color: 'var(--text-muted)' }}>Khóa học / Trình độ</label>
+                                    <input className="form-control" value={currentStudent.course || ''} disabled style={{ backgroundColor: '#e2e8f0', cursor: 'not-allowed' }} placeholder="Tự động hiển thị..." />
+                                </div>
+
+                                <div>
+                                    <label style={{ fontSize: '0.8rem', fontWeight: '700', color: 'var(--text-muted)' }}>Giáo viên phụ trách</label>
+                                    <input className="form-control" value={currentStudent.teacher || ''} disabled style={{ backgroundColor: '#e2e8f0', cursor: 'not-allowed' }} placeholder="Tự động hiển thị..." />
+                                </div>
+
+                                <div style={{ marginTop: '8px' }}>
+                                    <label style={{ fontSize: '0.8rem', fontWeight: '700' }}>Trạng thái học tập</label>
+                                    <select className="form-control" value={currentStudent.status} onChange={e => setCurrentStudent({ ...currentStudent, status: e.target.value })} disabled={modalMode === 'view'}>
+                                        <option value="Đang học">Đang học</option><option value="Bảo lưu">Bảo lưu</option><option value="Học lại">Học lại</option>
+                                    </select>
+                                </div>
                             </div>
                         </div>
-                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '24px' }}>
-                            <button className="btn" style={{ padding: '8px 16px', border: '1px solid var(--border-color)', borderRadius: '6px', cursor: 'pointer' }} onClick={() => setShowModal(false)}>Đóng</button>
-                            {modalMode !== 'view' && <button className="btn" style={{ padding: '8px 16px', backgroundColor: 'var(--primary)', color: 'white', borderRadius: '6px', cursor: 'pointer' }} onClick={handleSaveStudent}>Lưu thông tin</button>}
+
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '28px', borderTop: '1px solid var(--border-color)', paddingTop: '16px' }}>
+                            <button className="btn" style={{ padding: '10px 24px', border: '1px solid var(--border-color)', borderRadius: '8px', cursor: 'pointer', fontWeight: '600' }} onClick={() => setShowModal(false)}>Hủy bỏ</button>
+                            {modalMode !== 'view' && <button className="btn" style={{ padding: '10px 24px', backgroundColor: 'var(--primary)', color: 'white', borderRadius: '8px', cursor: 'pointer', fontWeight: '800' }} onClick={handleSaveStudent}><i className="fa-solid fa-floppy-disk"></i> Lưu hồ sơ</button>}
                         </div>
                     </div>
                 </div>

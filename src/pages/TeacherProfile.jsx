@@ -9,15 +9,18 @@ const api = axios.create({
 function TeacherProfile() {
     const { teachers, setTeachers } = useData();
 
-    const [formInput, setFormInput] = useState({ name: '', email: '', phone: '', experience: '', fee: '', address: '', status: 'Đang dạy' });
+    // Bổ sung notes vào form ban đầu
+    const [formInput, setFormInput] = useState({ name: '', email: '', phone: '', experience: '', fee: '', address: '', notes: '', status: 'Đang dạy' });
 
     // --- STATE QUẢN LÝ MODAL CHI TIẾT & CHỈNH SỬA ---
     const [selectedTeacher, setSelectedTeacher] = useState(null);
     const [isEditing, setIsEditing] = useState(false);
 
     const [isPanelExpanded, setIsPanelExpanded] = useState(false);
+
+    // Thêm cột notes vào quản lý hiển thị
     const [visibleColumns, setVisibleColumns] = useState({
-        email: true, experience: true, fee: true, address: false, status: true
+        email: true, experience: true, fee: true, address: false, notes: false, status: true
     });
 
     const optionalColumnsConfig = [
@@ -25,6 +28,7 @@ function TeacherProfile() {
         { key: 'experience', label: 'Kinh nghiệm', icon: 'fa-book' },
         { key: 'fee', label: 'Lương/Buổi', icon: 'fa-wallet' },
         { key: 'address', label: 'Địa chỉ', icon: 'fa-location-dot' },
+        { key: 'notes', label: 'Ghi chú', icon: 'fa-note-sticky' },
         { key: 'status', label: 'Trạng thái', icon: 'fa-user-check' }
     ];
 
@@ -35,15 +39,17 @@ function TeacherProfile() {
         e.preventDefault();
         if (!formInput.name || !formInput.phone) return alert('Vui lòng nhập Họ tên và Số điện thoại!');
         try {
-            const res = await api.post('/auth/register', {
+            const payload = {
                 ...formInput,
-                username: formInput.phone,
+                salary: formInput.fee ? parseInt(formInput.fee) : 0,
+                username: formInput.phone + '_teacher',
                 password: '123',
                 role: 'teacher'
-            });
+            };
+            const res = await api.post('/auth/register', payload);
             setTeachers(prev => [res.data, ...prev]);
             alert('Hệ thống: Lưu thông tin hồ sơ giáo viên thành công!');
-            setFormInput({ name: '', email: '', phone: '', experience: '', fee: '', address: '', status: 'Đang dạy' });
+            setFormInput({ name: '', email: '', phone: '', experience: '', fee: '', address: '', notes: '', status: 'Đang dạy' });
         } catch (err) {
             alert('Lỗi tạo giáo viên: ' + (err.response?.data?.message || err.message));
         }
@@ -52,7 +58,11 @@ function TeacherProfile() {
     const handleSaveEdit = async () => {
         if (!selectedTeacher || !selectedTeacher.id) return alert('Lỗi: Không xác định được ID giáo viên!');
         try {
-            const res = await api.put(`/users/${selectedTeacher.id}`, selectedTeacher);
+            const payload = {
+                ...selectedTeacher,
+                salary: selectedTeacher.fee ? parseInt(selectedTeacher.fee) : (selectedTeacher.salary || 0)
+            };
+            const res = await api.put(`/users/${selectedTeacher.id}`, payload);
             setTeachers(prev => prev.map(t => t.id === selectedTeacher.id ? res.data : t));
             setSelectedTeacher(null);
             setIsEditing(false);
@@ -96,6 +106,12 @@ function TeacherProfile() {
                             <option value="Đang dạy">Đang dạy</option><option value="Tạm nghỉ">Tạm nghỉ</option><option value="Đã nghỉ">Đã nghỉ</option>
                         </select>
                     </div>
+                    {/* BỔ SUNG TRƯỜNG GHI CHÚ */}
+                    <div style={{ gridColumn: 'span 3' }}>
+                        <label className="form-label">Ghi chú thêm về nhân sự</label>
+                        <textarea name="notes" className="form-control" rows="2" placeholder="Ví dụ: Chỉ dạy được buổi tối, có kỹ năng làm MC..." value={formInput.notes} onChange={handleInputChange} style={{ resize: 'vertical' }}></textarea>
+                    </div>
+
                     <div style={{ gridColumn: 'span 3', display: 'flex', justifyContent: 'flex-end', marginTop: '10px' }}>
                         <button type="submit" className="btn btn-primary" style={{ padding: '14px 40px', backgroundColor: 'var(--primary)', color: 'white', borderRadius: '8px', fontWeight: '800', cursor: 'pointer' }}>LƯU THÔNG TIN GIÁO VIÊN</button>
                     </div>
@@ -140,6 +156,7 @@ function TeacherProfile() {
                                 {visibleColumns.experience && <th style={{ padding: '16px' }}>KINH NGHIỆM</th>}
                                 {visibleColumns.fee && <th style={{ padding: '16px' }}>LƯƠNG</th>}
                                 {visibleColumns.address && <th style={{ padding: '16px' }}>ĐỊA CHỈ</th>}
+                                {visibleColumns.notes && <th style={{ padding: '16px' }}>GHI CHÚ</th>}
                                 {visibleColumns.status && <th style={{ padding: '16px' }}>TRẠNG THÁI</th>}
                                 <th style={{ padding: '16px', textAlign: 'center' }}>THAO TÁC</th>
                             </tr>
@@ -156,8 +173,9 @@ function TeacherProfile() {
                                     <td style={{ padding: '16px' }}>{t.phone || '---'}</td>
                                     {visibleColumns.email && <td style={{ padding: '16px' }}>{t.email || '---'}</td>}
                                     {visibleColumns.experience && <td style={{ padding: '16px' }}>{t.experience || '---'}</td>}
-                                    {visibleColumns.fee && <td style={{ padding: '16px', fontWeight: '700', color: 'var(--primary)' }}>{t.fee ? `${parseInt(t.fee).toLocaleString('vi-VN')} đ` : '---'}</td>}
+                                    {visibleColumns.fee && <td style={{ padding: '16px', fontWeight: '700', color: 'var(--primary)' }}>{(t.salary || t.fee) ? `${parseInt(t.salary || t.fee).toLocaleString('vi-VN')} đ` : '---'}</td>}
                                     {visibleColumns.address && <td style={{ padding: '16px' }}>{t.address || '---'}</td>}
+                                    {visibleColumns.notes && <td style={{ padding: '16px', maxWidth: '150px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={t.notes}>{t.notes || '---'}</td>}
                                     {visibleColumns.status && <td style={{ padding: '16px' }}>
                                         <span style={{ backgroundColor: t.status === 'Đang dạy' ? '#dcfce7' : '#fee2e2', color: t.status === 'Đang dạy' ? '#166534' : '#b91c1c', padding: '4px 12px', borderRadius: '50px', fontSize: '0.75rem', fontWeight: '800' }}>{t.status || 'Đang dạy'}</span>
                                     </td>}
@@ -202,7 +220,7 @@ function TeacherProfile() {
                             </div>
                             <div>
                                 <label style={{ fontSize: '0.8rem', fontWeight: '700', color: 'var(--text-muted)' }}>Mức lương / Buổi</label>
-                                {isEditing ? <input type="number" className="form-control" value={selectedTeacher.fee || ''} onChange={(e) => setSelectedTeacher({ ...selectedTeacher, fee: e.target.value })} /> : <div style={{ fontWeight: '600' }}>{selectedTeacher.fee ? `${parseInt(selectedTeacher.fee).toLocaleString('vi-VN')} đ` : '---'}</div>}
+                                {isEditing ? <input type="number" className="form-control" value={selectedTeacher.fee || selectedTeacher.salary || ''} onChange={(e) => setSelectedTeacher({ ...selectedTeacher, fee: e.target.value, salary: e.target.value })} /> : <div style={{ fontWeight: '600' }}>{(selectedTeacher.salary || selectedTeacher.fee) ? `${parseInt(selectedTeacher.salary || selectedTeacher.fee).toLocaleString('vi-VN')} đ` : '---'}</div>}
                             </div>
                             <div>
                                 <label style={{ fontSize: '0.8rem', fontWeight: '700', color: 'var(--text-muted)' }}>Trạng thái</label>
@@ -215,6 +233,11 @@ function TeacherProfile() {
                             <div style={{ gridColumn: 'span 2' }}>
                                 <label style={{ fontSize: '0.8rem', fontWeight: '700', color: 'var(--text-muted)' }}>Địa chỉ thường trú</label>
                                 {isEditing ? <input className="form-control" value={selectedTeacher.address || ''} onChange={(e) => setSelectedTeacher({ ...selectedTeacher, address: e.target.value })} /> : <div style={{ fontWeight: '600' }}>{selectedTeacher.address || '---'}</div>}
+                            </div>
+                            {/* BỔ SUNG TRƯỜNG GHI CHÚ TRONG MODAL CHI TIẾT */}
+                            <div style={{ gridColumn: 'span 2' }}>
+                                <label style={{ fontSize: '0.8rem', fontWeight: '700', color: 'var(--text-muted)' }}>Ghi chú thêm về nhân sự</label>
+                                {isEditing ? <textarea className="form-control" rows="2" value={selectedTeacher.notes || ''} onChange={(e) => setSelectedTeacher({ ...selectedTeacher, notes: e.target.value })} style={{ resize: 'vertical' }} /> : <div style={{ fontWeight: '600', whiteSpace: 'pre-wrap' }}>{selectedTeacher.notes || '---'}</div>}
                             </div>
                         </div>
 

@@ -8,57 +8,55 @@ const api = axios.create({
 });
 
 function Classes() {
-    const { classes, addClass, teachers } = useData();
+    // Kéo teachers và tas từ Context để làm dữ liệu cho Dropdown
+    const { classes, addClass, teachers, tas } = useData();
     const { currentUser, currentRole } = useAuth();
 
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedClass, setSelectedClass] = useState(null);
     const [activeSession, setActiveSession] = useState(1);
 
+    const [allStudents, setAllStudents] = useState([]);
     const [classStudents, setClassStudents] = useState([]);
 
-    // STATE CHO TÍNH NĂNG CHỈNH SỬA LỚP HỌC
     const [editingClass, setEditingClass] = useState(null);
 
+    // THÊM TRƯỜNG teacherId VÀ taId VÀO STATE
     const [formClass, setFormClass] = useState({
-        name: '', teacher: '', ta: '', padletUrl: '', classType: '',
+        name: '', teacher: '', teacherId: '', ta: '', taId: '', padletUrl: '', classType: '',
         level: '', sessionFee: '', startDate: '', totalSessions: '', scheduleTime: ''
     });
 
     useEffect(() => {
+        api.get('/students')
+            .then(res => setAllStudents(res.data))
+            .catch(() => console.log('Lỗi tải danh sách học viên'));
+    }, []);
+
+    useEffect(() => {
         if (selectedClass) {
-            api.get(`/classes/${selectedClass.id}/students`)
-                .then(res => setClassStudents(res.data))
-                .catch(() => {
-                    const fallback = selectedClass.studentIds?.map((id, i) => ({
-                        id: id, name: `Học viên ${i + 1}`, initial: 'H'
-                    })) || [];
-                    setClassStudents(fallback);
-                });
+            const studentsInThisClass = allStudents.filter(s => s.classId === selectedClass.classCode);
+            setClassStudents(studentsInThisClass);
         }
-    }, [selectedClass]);
+    }, [selectedClass, allStudents]);
 
     const handleCreateClass = async (e) => {
         e.preventDefault();
-        if (!formClass.name) {
-            alert('Vui lòng điền Tên lớp học!');
-            return;
-        }
+        if (!formClass.name) return alert('Vui lòng điền Tên lớp học!');
 
         const newClassObj = {
             classCode: formClass.name,
+            teacherId: formClass.teacherId ? parseInt(formClass.teacherId) : null,
             teacher: formClass.teacher,
-            teacherName: formClass.teacher, // Backup tên biến cho Spring Boot
+            teacherName: formClass.teacher,
+            taId: formClass.taId ? parseInt(formClass.taId) : null,
             ta: formClass.ta,
-            teachingAssistant: formClass.ta, // Backup tên biến cho Spring Boot
+            teachingAssistant: formClass.ta,
             classType: formClass.classType,
             level: formClass.level,
-            courseLevel: formClass.level, // Backup tên biến cho Spring Boot
-
-            // XỬ LÝ LỖI NaN (Cực kỳ quan trọng để ko sập Java)
+            courseLevel: formClass.level,
             totalSessions: parseInt(formClass.totalSessions) || 0,
             sessionFee: parseInt(formClass.sessionFee) || 0,
-
             scheduleTime: formClass.scheduleTime || 'Chưa rõ',
             startDate: formClass.startDate ? new Date(formClass.startDate).toISOString().split('T')[0] : null,
             padletUrl: formClass.padletUrl
@@ -68,32 +66,30 @@ function Classes() {
 
         if (result && result.success) {
             alert(`Hệ thống: Khởi tạo thành công lớp học ${formClass.name}!`);
-            setFormClass({ name: '', teacher: '', ta: '', padletUrl: '', classType: '', level: '', sessionFee: '', startDate: '', totalSessions: '', scheduleTime: '' });
+            setFormClass({ name: '', teacher: '', teacherId: '', ta: '', taId: '', padletUrl: '', classType: '', level: '', sessionFee: '', startDate: '', totalSessions: '', scheduleTime: '' });
         } else {
             alert('Lỗi tạo lớp! CSDL từ chối lưu. Chi tiết lỗi: ' + result.message);
         }
     };
 
-    // HÀM LƯU THÔNG TIN LỚP SAU KHI SỬA
     const handleSaveEdit = async () => {
         try {
             await api.put(`/classes/${editingClass.id}`, editingClass);
             alert('Cập nhật thông tin lớp học thành công!');
-            window.location.reload(); // Tải lại trang để cập nhật danh sách mới nhất
+            window.location.reload();
         } catch (error) {
             alert('Lỗi cập nhật! Vui lòng kiểm tra lại kết nối CSDL.');
         }
     };
 
-    // HÀM XÓA LỚP HỌC (BỔ SUNG MỚI)
     const handleDeleteClass = async (id) => {
-        if (window.confirm('Cảnh báo: Bạn có chắc chắn muốn xóa lớp học này không? Toàn bộ dữ liệu tiến trình và điểm danh của lớp sẽ bị mất!')) {
+        if (window.confirm('Cảnh báo: Bạn có chắc chắn muốn xóa lớp học này không? Toàn bộ dữ liệu tiến trình sẽ bị mất!')) {
             try {
                 await api.delete(`/classes/${id}`);
                 alert('Đã xóa lớp học thành công!');
-                window.location.reload(); // Tải lại trang để danh sách cập nhật mới nhất
+                window.location.reload();
             } catch (error) {
-                alert('Lỗi khi xóa lớp học! Vui lòng kiểm tra lại kết nối CSDL.');
+                alert('Lỗi khi xóa lớp học!');
             }
         }
     };
@@ -101,14 +97,14 @@ function Classes() {
     let displayClasses = classes || [];
     if (currentRole === 'teacher') {
         displayClasses = displayClasses.filter(c =>
-            c.teacher && c.teacher.toLowerCase().includes(currentUser.name.toLowerCase())
+            c.teacherId === currentUser.id || (c.teacher && c.teacher.toLowerCase().includes(currentUser.name.toLowerCase()))
         );
     }
-
     if (searchTerm) {
         displayClasses = displayClasses.filter(c => c.classCode && c.classCode.toLowerCase().includes(searchTerm.toLowerCase()));
     }
 
+    // ... (Phần render chi tiết lớp selectedClass giữ nguyên như cũ, tôi rút gọn để tiết kiệm không gian)
     if (selectedClass) {
         return (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', animation: 'fadeIn 0.3s ease-out' }}>
@@ -127,10 +123,11 @@ function Classes() {
                         <div style={{ backgroundColor: '#f8fafc', padding: '20px', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
                             <h4 style={{ fontSize: '0.8rem', fontWeight: '800', color: 'var(--text-muted)', marginBottom: '16px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>DANH SÁCH LỚP ({classStudents.length})</h4>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                {classStudents.length === 0 && <p style={{ fontSize: '0.8rem', color: 'gray' }}>Chưa có học viên nào.</p>}
                                 {classStudents.map(st => (
                                     <div key={st.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'white', padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--border-color)', boxShadow: 'var(--shadow-sm)' }}>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                            <div style={{ width: '28px', height: '28px', borderRadius: '50%', backgroundColor: 'var(--primary-light)', color: 'var(--primary)', display: 'flex', justifyContent: 'center', alignItems: 'center', fontWeight: '800', fontSize: '0.75rem' }}>{st.initial || st.name?.charAt(0)}</div>
+                                            <div style={{ width: '28px', height: '28px', borderRadius: '50%', backgroundColor: 'var(--primary-light)', color: 'var(--primary)', display: 'flex', justifyContent: 'center', alignItems: 'center', fontWeight: '800', fontSize: '0.75rem' }}>{st.name?.charAt(0)}</div>
                                             <span style={{ fontSize: '0.85rem', fontWeight: '600' }}>{st.name}</span>
                                         </div>
                                         <span style={{ backgroundColor: '#dcfce7', color: '#166534', fontSize: '0.65rem', fontWeight: '700', padding: '2px 8px', borderRadius: '4px' }}>Đã ĐK</span>
@@ -156,7 +153,6 @@ function Classes() {
                                             <span style={{ fontSize: '0.85rem', fontWeight: '600', color: 'var(--text-main)' }}>Bài {num}</span>
                                             <span style={{ fontSize: '0.75rem', color: 'var(--primary)', cursor: 'pointer', fontWeight: '700' }}><i className="fa-solid fa-users"></i> Xem HV</span>
                                         </div>
-                                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px' }}>Sĩ số: {classStudents.length}/{classStudents.length}</div>
                                     </div>
                                 ))}
                             </div>
@@ -170,7 +166,6 @@ function Classes() {
                                     const isSelected = activeSession === num;
                                     const isCancelled = num === 4;
                                     const isDone = num < 4 && num !== 4;
-
                                     let cardClass = "session-btn-card";
                                     if (isCancelled) cardClass += " session-cancelled";
                                     else if (isDone) cardClass += " session-submitted-ga";
@@ -181,7 +176,7 @@ function Classes() {
                                             <strong style={{ fontSize: '0.7rem' }}>BUỔI {num}</strong>
                                             <span style={{ fontSize: '0.85rem', marginBottom: '4px' }}>{10 + num}/04</span>
                                             {isDone && <span className="session-submitted-ga-badge" style={{ backgroundColor: isSelected ? 'rgba(255,255,255,0.2)' : '#dcfce7', color: isSelected ? 'white' : '#166534' }}><i className="fa-solid fa-check"></i> Đã nộp GA</span>}
-                                            {isCancelled && <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}><span className="session-cancelled-badge" style={{ backgroundColor: '#fee2e2', color: '#b91c1c' }}><i className="fa-solid fa-ban"></i> NGHỈ</span><span className="session-btn-soan-ga" style={{ border: 'none', background: 'white', color: '#b91c1c', padding: '2px 6px', borderRadius: '4px', fontSize: '0.6rem' }}><i className="fa-solid fa-plus"></i> Soạn GA</span></div>}
+                                            {isCancelled && <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}><span className="session-cancelled-badge" style={{ backgroundColor: '#fee2e2', color: '#b91c1c' }}><i className="fa-solid fa-ban"></i> NGHỈ</span></div>}
                                         </div>
                                     );
                                 })}
@@ -198,10 +193,11 @@ function Classes() {
                             </div>
 
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '24px' }}>
+                                {classStudents.length === 0 && <p style={{ gridColumn: 'span 2', textAlign: 'center', color: 'gray' }}>Chưa có học viên để điểm danh.</p>}
                                 {classStudents.map(st => (
                                     <div key={st.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'white', padding: '12px 16px', borderRadius: '10px', border: '1px solid var(--border-color)', boxShadow: '0 1px 2px rgba(0,0,0,0.02)' }}>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                            <div style={{ width: '36px', height: '36px', borderRadius: '50%', backgroundColor: 'var(--bg-app)', color: 'var(--text-muted)', display: 'flex', justifyContent: 'center', alignItems: 'center', fontWeight: '800', fontSize: '1rem' }}>{st.initial || st.name?.charAt(0)}</div>
+                                            <div style={{ width: '36px', height: '36px', borderRadius: '50%', backgroundColor: 'var(--bg-app)', color: 'var(--text-muted)', display: 'flex', justifyContent: 'center', alignItems: 'center', fontWeight: '800', fontSize: '1rem' }}>{st.name?.charAt(0)}</div>
                                             <div>
                                                 <strong style={{ display: 'block', fontSize: '0.9rem', marginBottom: '4px' }}>{st.name}</strong>
                                                 <div style={{ display: 'flex', gap: '12px', fontSize: '0.8rem' }}>
@@ -217,9 +213,9 @@ function Classes() {
 
                             <div>
                                 <h4 style={{ fontSize: '0.95rem', fontWeight: '800', marginBottom: '12px' }}>Nội dung bài dạy / Ghi chú</h4>
-                                <textarea className="form-control" rows="3" placeholder="VD: Học từ vựng bài 5, ngữ pháp cấu trúc Ba..." style={{ backgroundColor: 'white', resize: 'none' }}></textarea>
+                                <textarea className="form-control" rows="3" placeholder="VD: Học từ vựng bài 5..." style={{ backgroundColor: 'white', resize: 'none' }}></textarea>
                                 <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '16px' }}>
-                                    <button className="btn btn-primary" style={{ padding: '12px 32px', backgroundColor: 'var(--primary)', color: 'white', borderRadius: '8px', fontWeight: '700', cursor: 'pointer' }} onClick={() => alert('Hệ thống: Lưu sổ điểm danh lớp học thành công!')}>Lưu Sổ Điểm Danh</button>
+                                    <button className="btn btn-primary" style={{ padding: '12px 32px', backgroundColor: 'var(--primary)', color: 'white', borderRadius: '8px', fontWeight: '700', cursor: 'pointer' }} onClick={() => alert('Hệ thống: Lưu sổ điểm danh thành công!')}>Lưu Sổ Điểm Danh</button>
                                 </div>
                             </div>
                         </div>
@@ -244,11 +240,26 @@ function Classes() {
                             </div>
                             <div>
                                 <label style={{ fontSize: '0.75rem', fontWeight: '700', color: 'var(--text-muted)', marginBottom: '8px', display: 'block' }}>GIÁO VIÊN PHỤ TRÁCH</label>
-                                <input type="text" className="form-control" placeholder="Nhập tên Giáo viên..." value={formClass.teacher} onChange={(e) => setFormClass({ ...formClass, teacher: e.target.value })} />
+                                {/* ĐÃ ĐỔI SANG THẺ SELECT: Lấy ID và Name trực tiếp từ DB */}
+                                <select className="form-control" value={formClass.teacherId} onChange={(e) => {
+                                    const selectedId = e.target.value;
+                                    const selectedTeacher = teachers.find(t => t.id.toString() === selectedId);
+                                    setFormClass({ ...formClass, teacherId: selectedId, teacher: selectedTeacher ? selectedTeacher.name : '' });
+                                }}>
+                                    <option value="">-- Chọn Giáo viên --</option>
+                                    {teachers && teachers.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                                </select>
                             </div>
                             <div>
-                                <label style={{ fontSize: '0.75rem', fontWeight: '700', color: 'var(--text-muted)', marginBottom: '8px', display: 'block' }}>TRỢ GIẢNG PHỤ TRÁCH</label>
-                                <input type="text" className="form-control" placeholder="Nhập tên Trợ giảng..." value={formClass.ta} onChange={(e) => setFormClass({ ...formClass, ta: e.target.value })} />
+                                <label style={{ fontSize: '0.8rem', fontWeight: '700', color: 'var(--text-muted)', display: 'block', marginBottom: '6px' }}>TRỢ GIẢNG PHỤ TRÁCH</label>
+                                <select className="form-control" value={formClass.taId} onChange={(e) => {
+                                    const selectedId = e.target.value;
+                                    const selectedTA = tas.find(t => t.id.toString() === selectedId);
+                                    setFormClass({ ...formClass, taId: selectedId, ta: selectedTA ? selectedTA.name : '' });
+                                }}>
+                                    <option value="">-- Chọn Trợ giảng --</option>
+                                    {tas && tas.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                                </select>
                             </div>
                         </div>
 
@@ -317,56 +328,42 @@ function Classes() {
                     <tbody>
                         {displayClasses.length === 0 && <tr><td colSpan="4" style={{ textAlign: 'center', padding: '30px', color: 'var(--text-muted)' }}>Không tìm thấy lớp học nào khớp với dữ liệu.</td></tr>}
 
-                        {displayClasses.map((c) => (
-                            <tr key={c.id} style={{ borderBottom: '1px solid var(--border-color)', backgroundColor: 'white', transition: 'background 0.2s' }} onMouseOver={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-app)'} onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'white'}>
-                                <td style={{ padding: '20px 24px' }}>
-                                    <strong
-                                        style={{ fontSize: '1.1rem', color: '#4f46e5', fontWeight: '800', cursor: 'pointer', display: 'block', marginBottom: '6px' }}
-                                        onClick={() => setSelectedClass(c)}
-                                        title="Nhấn để xem chi tiết Lớp học"
-                                    >
-                                        {c.classCode}
-                                    </strong>
-                                    <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}><i className="fa-solid fa-chalkboard-user" style={{ color: '#94a3b8', marginRight: '6px' }}></i> {c.teacher || 'Chưa xếp giáo viên'} {c.ta && `| TA: ${c.ta}`}</span>
-                                </td>
-                                <td style={{ padding: '20px 24px', fontSize: '0.85rem', color: 'var(--text-muted)', lineHeight: '1.6' }}>
-                                    <div><i className="fa-regular fa-clock" style={{ color: '#94a3b8', width: '20px' }}></i> {c.scheduleTime}</div>
-                                    <div><i className="fa-regular fa-calendar" style={{ color: '#94a3b8', width: '20px' }}></i> KG: {c.startDate || 'Dự kiến'}</div>
-                                </td>
-                                <td style={{ padding: '20px 24px' }}>
-                                    <span style={{ backgroundColor: '#e0e7ff', color: '#3730a3', padding: '4px 12px', borderRadius: '50px', fontSize: '0.75rem', fontWeight: '800' }}>
-                                        {c.studentIds?.length || 0} HV
-                                    </span>
-                                </td>
-                                {currentRole !== 'teacher' && (
-                                    <td style={{ padding: '20px 24px', textAlign: 'center' }}>
-                                        <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
-                                            <button
-                                                title="Sửa"
-                                                onClick={() => setEditingClass(c)}
-                                                style={{ background: '#f8fafc', border: '1px solid #cbd5e1', width: '32px', height: '32px', borderRadius: '50%', cursor: 'pointer', color: '#475569' }}
-                                            >
-                                                <i className="fa-solid fa-pen"></i>
-                                            </button>
+                        {displayClasses.map((c) => {
+                            const count = allStudents.filter(s => s.classId === c.classCode).length;
 
-                                            {/* SỰ KIỆN NÚT XÓA ĐÃ ĐƯỢC KẾT NỐI */}
-                                            <button
-                                                title="Xóa"
-                                                onClick={() => handleDeleteClass(c.id)}
-                                                style={{ background: '#f8fafc', border: '1px solid #cbd5e1', width: '32px', height: '32px', borderRadius: '50%', cursor: 'pointer', color: '#1e293b' }}
-                                            >
-                                                <i className="fa-solid fa-trash"></i>
-                                            </button>
-                                        </div>
+                            return (
+                                <tr key={c.id} style={{ borderBottom: '1px solid var(--border-color)', backgroundColor: 'white', transition: 'background 0.2s' }} onMouseOver={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-app)'} onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'white'}>
+                                    <td style={{ padding: '20px 24px' }}>
+                                        <strong style={{ fontSize: '1.1rem', color: '#4f46e5', fontWeight: '800', cursor: 'pointer', display: 'block', marginBottom: '6px' }} onClick={() => setSelectedClass(c)} title="Nhấn để xem chi tiết Lớp học">
+                                            {c.classCode}
+                                        </strong>
+                                        <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}><i className="fa-solid fa-chalkboard-user" style={{ color: '#94a3b8', marginRight: '6px' }}></i> {c.teacher || 'Chưa xếp giáo viên'} {c.ta && `| TA: ${c.ta}`}</span>
                                     </td>
-                                )}
-                            </tr>
-                        ))}
+                                    <td style={{ padding: '20px 24px', fontSize: '0.85rem', color: 'var(--text-muted)', lineHeight: '1.6' }}>
+                                        <div><i className="fa-regular fa-clock" style={{ color: '#94a3b8', width: '20px' }}></i> {c.scheduleTime}</div>
+                                        <div><i className="fa-regular fa-calendar" style={{ color: '#94a3b8', width: '20px' }}></i> KG: {c.startDate || 'Dự kiến'}</div>
+                                    </td>
+                                    <td style={{ padding: '20px 24px' }}>
+                                        <span style={{ backgroundColor: '#e0e7ff', color: '#3730a3', padding: '4px 12px', borderRadius: '50px', fontSize: '0.75rem', fontWeight: '800' }}>
+                                            {count} HV
+                                        </span>
+                                    </td>
+                                    {currentRole !== 'teacher' && (
+                                        <td style={{ padding: '20px 24px', textAlign: 'center' }}>
+                                            <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
+                                                <button title="Sửa" onClick={() => setEditingClass(c)} style={{ background: '#f8fafc', border: '1px solid #cbd5e1', width: '32px', height: '32px', borderRadius: '50%', cursor: 'pointer', color: '#475569' }}><i className="fa-solid fa-pen"></i></button>
+                                                <button title="Xóa" onClick={() => handleDeleteClass(c.id)} style={{ background: '#f8fafc', border: '1px solid #cbd5e1', width: '32px', height: '32px', borderRadius: '50%', cursor: 'pointer', color: '#1e293b' }}><i className="fa-solid fa-trash"></i></button>
+                                            </div>
+                                        </td>
+                                    )}
+                                </tr>
+                            );
+                        })}
                     </tbody>
                 </table>
             </div>
 
-            {/* GIAO DIỆN MODAL MENU ĐỂ CHỈNH SỬA LỚP HỌC */}
+            {/* GIAO DIỆN MODAL CHỈNH SỬA LỚP - NÂNG CẤP VỚI DROP DOWN */}
             {editingClass && (
                 <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
                     <div className="card" style={{ width: '650px', backgroundColor: 'white', padding: '24px', borderRadius: '12px', maxHeight: '90vh', overflowY: 'auto' }}>
@@ -386,11 +383,25 @@ function Classes() {
                             </div>
                             <div>
                                 <label style={{ fontSize: '0.8rem', fontWeight: '700', color: 'var(--text-muted)' }}>Giáo viên</label>
-                                <input className="form-control" value={editingClass.teacher || ''} onChange={(e) => setEditingClass({ ...editingClass, teacher: e.target.value })} />
+                                <select className="form-control" value={editingClass.teacherId || ''} onChange={(e) => {
+                                    const selectedId = e.target.value;
+                                    const selectedTeacher = teachers.find(t => t.id.toString() === selectedId);
+                                    setEditingClass({ ...editingClass, teacherId: selectedId, teacher: selectedTeacher ? selectedTeacher.name : '' });
+                                }}>
+                                    <option value="">-- Chọn Giáo viên --</option>
+                                    {teachers && teachers.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                                </select>
                             </div>
                             <div>
                                 <label style={{ fontSize: '0.8rem', fontWeight: '700', color: 'var(--text-muted)' }}>Trợ giảng</label>
-                                <input className="form-control" value={editingClass.ta || ''} onChange={(e) => setEditingClass({ ...editingClass, ta: e.target.value })} />
+                                <select className="form-control" value={editingClass.taId || ''} onChange={(e) => {
+                                    const selectedId = e.target.value;
+                                    const selectedTA = tas.find(t => t.id.toString() === selectedId);
+                                    setEditingClass({ ...editingClass, taId: selectedId, ta: selectedTA ? selectedTA.name : '' });
+                                }}>
+                                    <option value="">-- Chọn Trợ giảng --</option>
+                                    {tas && tas.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                                </select>
                             </div>
                             <div>
                                 <label style={{ fontSize: '0.8rem', fontWeight: '700', color: 'var(--text-muted)' }}>Loại hình</label>

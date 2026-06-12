@@ -36,7 +36,7 @@ function TeachingAssistantProfile() {
         try {
             const res = await api.post('/auth/register', {
                 ...formInput,
-                username: formInput.phone,
+                username: formInput.phone + '_ta',
                 password: '123',
                 role: 'ta'
             });

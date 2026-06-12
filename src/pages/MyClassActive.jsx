@@ -12,9 +12,18 @@ function MyClassActive() {
     const { classes } = useData();
 
     // Lọc lớp học dựa trên quyền: Admin thấy hết, Giáo viên chỉ thấy lớp của mình
+    // Lọc lớp học dựa trên quyền: Admin thấy hết, Giáo viên/Trợ giảng chỉ thấy lớp của mình
     const myClasses = classes.filter(c => {
         if (currentRole === 'admin' || currentRole === 'manager') return true;
-        return c.teacher && c.teacher.toLowerCase().includes(currentUser.name.toLowerCase());
+        if (currentRole === 'teacher') {
+            // Ưu tiên lọc theo ID chính xác tuyệt đối, dự phòng lọc tên cho các lớp cũ chưa có ID
+            return c.teacherId === currentUser.id || (c.teacher && c.teacher.toLowerCase().includes(currentUser.name.toLowerCase()));
+        }
+        if (currentRole === 'ta') {
+            // Tương tự bảo vệ quyền lợi cho cả Trợ giảng
+            return c.taId === currentUser.id || (c.ta && c.ta.toLowerCase().includes(currentUser.name.toLowerCase()));
+        }
+        return false;
     });
 
     const [activeClassId, setActiveClassId] = useState(null);
@@ -184,12 +193,14 @@ function MyClassActive() {
                             <i className="fa-solid fa-user-graduate" style={{ marginLeft: '12px', marginRight: '6px' }}></i> Trợ giảng: {activeClass?.ta ? activeClass.ta : 'Không có'}
                         </p>
                     </div>
-                    <div style={{ textAlign: 'right', padding: '12px 20px', backgroundColor: 'var(--bg-app)', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
-                        <span style={{ fontSize: '0.75rem', fontWeight: '700', color: 'var(--text-muted)', display: 'block', textTransform: 'uppercase' }}>Học phí / Buổi dạy</span>
-                        <strong style={{ fontSize: '1.2rem', color: 'var(--primary)', fontWeight: '800' }}>
-                            {activeClass?.sessionFee ? Number(activeClass.sessionFee).toLocaleString('vi-VN') : '0'} VNĐ
-                        </strong>
-                    </div>
+                    {currentRole !== 'teacher' && (
+                        <div style={{ textAlign: 'right', padding: '12px 20px', backgroundColor: 'var(--bg-app)', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
+                            <span style={{ fontSize: '0.75rem', fontWeight: '700', color: 'var(--text-muted)', display: 'block', textTransform: 'uppercase' }}>Học phí / Buổi dạy</span>
+                            <strong style={{ fontSize: '1.2rem', color: 'var(--primary)', fontWeight: '800' }}>
+                                {activeClass?.sessionFee ? Number(activeClass.sessionFee).toLocaleString('vi-VN') : '0'} VNĐ
+                            </strong>
+                        </div>
+                    )}
                 </div>
             </div>
 

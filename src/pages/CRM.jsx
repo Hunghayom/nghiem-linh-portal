@@ -17,7 +17,8 @@ function CRM() {
     const [visibleColumns, setVisibleColumns] = useState({
         receiveDate: false, saleInCharge: false, dob: false, name: false,
         customerType: false, source: false, fee: false, totalSessions: false,
-        lastContact: false, notes: false, nextAction: false, assignClass: false
+        lastContact: false, notes: false, nextAction: false,
+        assignClass: true
     });
 
     const optionalColumnsConfig = [

@@ -12,13 +12,21 @@ function ClassReports() {
     const { currentUser, currentRole } = useAuth();
     const [selectedReport, setSelectedReport] = useState(null);
 
+    // STATE LƯU TRỮ HỌC VIÊN
+    const [allStudents, setAllStudents] = useState([]);
     const [reportStudents, setReportStudents] = useState([]);
-    const [reportSessions, setReportSessions] = useState([]);
 
+    const [reportSessions, setReportSessions] = useState([]);
     const [progressMap, setProgressMap] = useState({});
     const [attendanceMap, setAttendanceMap] = useState({});
 
-    // 1. TỰ ĐỘNG ĐỒNG BỘ TIẾN ĐỘ CHO TẤT CẢ CÁC LỚP, BỎ ĐI DỮ LIỆU RÁC
+    // LẤY TẤT CẢ HỌC VIÊN TỪ DATABASE
+    useEffect(() => {
+        api.get('/students')
+            .then(res => setAllStudents(res.data))
+            .catch(() => console.log("Lỗi tải học viên"));
+    }, []);
+
     useEffect(() => {
         if (classes && classes.length > 0) {
             classes.forEach(c => {
@@ -28,7 +36,6 @@ function ClassReports() {
                         const uniqueMap = new Map();
                         rawSessions.forEach(s => { if (s.sessionNum) uniqueMap.set(s.sessionNum, s); });
                         const sessions = Array.from(uniqueMap.values());
-
                         const completedCount = sessions.filter(s => s.status === 'completed' || s.status === 'cancelled').length;
                         setProgressMap(prev => ({ ...prev, [c.id]: completedCount }));
                     })
@@ -37,18 +44,15 @@ function ClassReports() {
         }
     }, [classes]);
 
-    // 2. TẢI DỮ LIỆU CHI TIẾT KHI MỞ BÁO CÁO (LỌC TRÙNG LẶP)
     useEffect(() => {
         if (selectedReport) {
-            api.get(`/classes/${selectedReport.id}/students`)
-                .then(res => setReportStudents(res.data || []))
-                .catch(() => setReportStudents([]));
+            // LỌC HỌC VIÊN THEO CLASSCODE
+            const studentsInReport = allStudents.filter(s => s.classId === selectedReport.classCode);
+            setReportStudents(studentsInReport);
 
             api.get(`/sessions/class/${selectedReport.id}`)
                 .then(res => {
                     const rawSessions = res.data || [];
-
-                    // LỌC BỎ CÁC BẢN GHI RÁC TỪ DATABASE
                     const uniqueSessionsMap = new Map();
                     rawSessions.forEach(s => {
                         if (s.sessionNum) {
@@ -73,7 +77,7 @@ function ClassReports() {
                 })
                 .catch(() => setReportSessions([]));
         }
-    }, [selectedReport]);
+    }, [selectedReport, allStudents]);
 
     let displayClasses = classes || [];
     if (currentRole === 'teacher') {
@@ -89,34 +93,38 @@ function ClassReports() {
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '20px' }}>
                 {displayClasses.length === 0 && <p style={{ color: 'var(--text-muted)' }}>Chưa có dữ liệu lớp học trên hệ thống.</p>}
-                {displayClasses.map(c => (
-                    <div key={c.id} style={{ backgroundColor: 'white', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '20px', cursor: 'pointer', boxShadow: 'var(--shadow-sm)', transition: 'transform 0.2s' }}
-                        onClick={() => setSelectedReport(c)}
-                        onMouseOver={(e) => e.currentTarget.style.transform = 'translateY(-4px)'}
-                        onMouseOut={(e) => e.currentTarget.style.transform = 'translateY(0)'}>
+                {displayClasses.map(c => {
+                    const count = allStudents.filter(s => s.classId === c.classCode).length;
 
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                            <h4 style={{ fontSize: '1.2rem', fontWeight: '800', color: '#1e3a8a' }}>{c.classCode || 'Chưa có tên lớp'}</h4>
-                            <span style={{ backgroundColor: '#dbeafe', color: '#1e40af', padding: '4px 10px', borderRadius: '50px', fontSize: '0.8rem', fontWeight: '700' }}>{c.studentIds?.length || 0} HV</span>
+                    return (
+                        <div key={c.id} style={{ backgroundColor: 'white', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '20px', cursor: 'pointer', boxShadow: 'var(--shadow-sm)', transition: 'transform 0.2s' }}
+                            onClick={() => setSelectedReport(c)}
+                            onMouseOver={(e) => e.currentTarget.style.transform = 'translateY(-4px)'}
+                            onMouseOut={(e) => e.currentTarget.style.transform = 'translateY(0)'}>
+
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                                <h4 style={{ fontSize: '1.2rem', fontWeight: '800', color: '#1e3a8a' }}>{c.classCode || 'Chưa có tên lớp'}</h4>
+                                <span style={{ backgroundColor: '#dbeafe', color: '#1e40af', padding: '4px 10px', borderRadius: '50px', fontSize: '0.8rem', fontWeight: '700' }}>{count} HV</span>
+                            </div>
+
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                                <span><i className="fa-solid fa-user-tie" style={{ width: '20px' }}></i> GV: <strong style={{ color: 'var(--text-main)' }}>{c.teacher || 'Chưa xếp'}</strong></span>
+
+                                {c.ta && (
+                                    <span><i className="fa-solid fa-user-graduate" style={{ width: '20px' }}></i> TA: <strong style={{ color: 'var(--text-main)' }}>{c.ta}</strong></span>
+                                )}
+
+                                <span><i className="fa-solid fa-clock" style={{ width: '20px' }}></i> Lịch học: <strong style={{ color: 'var(--text-main)' }}>{c.scheduleTime || 'Chưa xếp'}</strong></span>
+                                <span><i className="fa-solid fa-list-check" style={{ width: '20px' }}></i> Tiến độ: <strong style={{ color: 'var(--text-main)' }}>{progressMap[c.id] || 0}/{c.totalSessions || 19} buổi</strong></span>
+                            </div>
+
+                            <div style={{ marginTop: '16px', paddingTop: '12px', borderTop: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.8rem' }}>
+                                <span style={{ color: 'var(--text-muted)' }}>Xem báo cáo chi tiết</span>
+                                <i className="fa-solid fa-arrow-right" style={{ color: 'var(--primary)' }}></i>
+                            </div>
                         </div>
-
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                            <span><i className="fa-solid fa-user-tie" style={{ width: '20px' }}></i> GV: <strong style={{ color: 'var(--text-main)' }}>{c.teacher || 'Chưa xếp'}</strong></span>
-
-                            {c.ta && (
-                                <span><i className="fa-solid fa-user-graduate" style={{ width: '20px' }}></i> TA: <strong style={{ color: 'var(--text-main)' }}>{c.ta}</strong></span>
-                            )}
-
-                            <span><i className="fa-solid fa-clock" style={{ width: '20px' }}></i> Lịch học: <strong style={{ color: 'var(--text-main)' }}>{c.scheduleTime || 'Chưa xếp'}</strong></span>
-                            <span><i className="fa-solid fa-list-check" style={{ width: '20px' }}></i> Tiến độ: <strong style={{ color: 'var(--text-main)' }}>{progressMap[c.id] || 0}/{c.totalSessions || 19} buổi</strong></span>
-                        </div>
-
-                        <div style={{ marginTop: '16px', paddingTop: '12px', borderTop: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.8rem' }}>
-                            <span style={{ color: 'var(--text-muted)' }}>Xem báo cáo chi tiết</span>
-                            <i className="fa-solid fa-arrow-right" style={{ color: 'var(--primary)' }}></i>
-                        </div>
-                    </div>
-                ))}
+                    );
+                })}
             </div>
 
             {selectedReport && (
@@ -172,7 +180,6 @@ function ClassReports() {
                             <div style={{ backgroundColor: 'white', borderRadius: '12px', border: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
                                 <div style={{ padding: '16px', backgroundColor: '#f1f5f9', borderBottom: '1px solid var(--border-color)', fontWeight: '800' }}>Lịch sử Dạy & Điểm danh</div>
                                 <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '16px', overflowY: 'auto', flex: 1 }}>
-
                                     {reportSessions.filter(s => s.status === 'completed' || s.status === 'cancelled').length === 0 &&
                                         <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', textAlign: 'center', marginTop: '20px' }}>Chưa có lịch sử dạy được ghi nhận từ Giáo viên.</p>
                                     }
