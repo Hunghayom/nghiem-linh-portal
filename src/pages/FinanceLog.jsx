@@ -8,19 +8,16 @@ const api = axios.create({
 function FinanceLog() {
     const [invoices, setInvoices] = useState([]);
 
-    // Mặc định ngày hôm nay
     const todayStr = new Date().toISOString().split('T')[0];
     const [formInvoice, setFormInvoice] = useState({
-        date: todayStr, studentName: '', course: 'Khóa học HSK 1', amount: '', method: 'Chuyển khoản ngân hàng'
+        date: todayStr, studentName: '', course: 'Khóa học HSK 1', amount: '', amountJpy: '', method: 'Chuyển khoản ngân hàng', notes: ''
     });
 
-    // STATE QUẢN LÝ CHỈNH SỬA
     const [editingInvoice, setEditingInvoice] = useState(null);
 
     useEffect(() => {
         api.get('/invoices')
             .then(res => {
-                // Sắp xếp hóa đơn mới nhất lên đầu
                 const sortedData = res.data.sort((a, b) => b.id - a.id);
                 setInvoices(sortedData);
             })
@@ -29,9 +26,12 @@ function FinanceLog() {
 
     const handleAddInvoice = async (e) => {
         e.preventDefault();
-        if (!formInvoice.studentName || !formInvoice.amount) return;
 
-        // Định dạng lại ngày từ YYYY-MM-DD sang DD/MM/YYYY cho đẹp
+        if (!formInvoice.studentName || (!formInvoice.amount && !formInvoice.amountJpy)) {
+            alert('Vui lòng điền tên học viên và ít nhất 1 loại số tiền (VNĐ hoặc JPY)!');
+            return;
+        }
+
         const dateParts = formInvoice.date.split('-');
         const formattedDate = dateParts.length === 3 ? `${dateParts[2]}/${dateParts[1]}/${dateParts[0]}` : formInvoice.date;
 
@@ -39,25 +39,31 @@ function FinanceLog() {
             date: formattedDate,
             studentName: formInvoice.studentName,
             course: formInvoice.course,
-            amount: parseInt(formInvoice.amount),
+            amount: parseInt(formInvoice.amount) || 0,
+            amountJpy: parseInt(formInvoice.amountJpy) || 0,
             method: formInvoice.method,
+            notes: formInvoice.notes,
             status: 'Đã thanh toán'
         };
 
         try {
             const res = await api.post('/invoices', newInv);
             setInvoices([res.data, ...invoices]);
-            setFormInvoice({ date: todayStr, studentName: '', course: 'Khóa học HSK 1', amount: '', method: 'Chuyển khoản ngân hàng' });
+            setFormInvoice({ date: todayStr, studentName: '', course: 'Khóa học HSK 1', amount: '', amountJpy: '', method: 'Chuyển khoản ngân hàng', notes: '' });
             alert('Hệ thống: Ghi nhận hóa đơn thu học phí thành công!');
         } catch (error) {
             alert('Lỗi lưu hóa đơn vào CSDL!');
         }
     };
 
-    // HÀM LƯU KHI SỬA HÓA ĐƠN
     const handleSaveEdit = async () => {
         try {
-            const res = await api.put(`/invoices/${editingInvoice.id}`, editingInvoice);
+            const payload = {
+                ...editingInvoice,
+                amount: parseInt(editingInvoice.amount) || 0,
+                amountJpy: parseInt(editingInvoice.amountJpy) || 0
+            };
+            const res = await api.put(`/invoices/${editingInvoice.id}`, payload);
             setInvoices(invoices.map(inv => inv.id === editingInvoice.id ? res.data : inv));
             setEditingInvoice(null);
             alert('Cập nhật hóa đơn thành công!');
@@ -66,7 +72,6 @@ function FinanceLog() {
         }
     };
 
-    // HÀM XÓA HÓA ĐƠN
     const handleDelete = async (id) => {
         if (window.confirm('Cảnh báo: Việc xóa hóa đơn sẽ làm thay đổi báo cáo doanh thu. Xác nhận xóa?')) {
             try {
@@ -79,23 +84,32 @@ function FinanceLog() {
         }
     };
 
-    const totalCollected = invoices.reduce((sum, inv) => sum + (inv.amount || 0), 0);
+    const totalCollectedVnd = invoices.reduce((sum, inv) => sum + (inv.amount || 0), 0);
+    const totalCollectedJpy = invoices.reduce((sum, inv) => sum + (inv.amountJpy || 0), 0);
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', animation: 'fadeIn 0.3s ease-out' }}>
-            {/* THỐNG KÊ TỔNG */}
+
             <div className="card" style={{ padding: '20px', backgroundColor: 'var(--primary-light)', borderColor: 'var(--primary)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div>
                         <span style={{ fontSize: '0.8rem', fontWeight: '700', color: 'var(--primary)', textTransform: 'uppercase' }}>Tổng dòng tiền học phí đã thu</span>
-                        <h2 style={{ fontSize: '2rem', fontWeight: '800', color: 'var(--primary)', marginTop: '4px' }}>{totalCollected.toLocaleString('vi-VN')} VNĐ</h2>
+                        <div style={{ display: 'flex', alignItems: 'flex-end', gap: '16px', marginTop: '4px' }}>
+                            <h2 style={{ fontSize: '2rem', fontWeight: '800', color: 'var(--primary)', margin: 0 }}>
+                                {totalCollectedVnd.toLocaleString('vi-VN')} VNĐ
+                            </h2>
+                            {totalCollectedJpy > 0 && (
+                                <h2 style={{ fontSize: '1.6rem', fontWeight: '800', color: '#059669', margin: 0, paddingBottom: '2px' }}>
+                                    + {totalCollectedJpy.toLocaleString('vi-VN')} ¥
+                                </h2>
+                            )}
+                        </div>
                     </div>
                     <i className="fa-solid fa-vault" style={{ fontSize: '2.5rem', color: 'var(--primary)', opacity: 0.3 }}></i>
                 </div>
             </div>
 
             <div className="my-portal-grid" style={{ gridTemplateColumns: '1fr 2fr' }}>
-                {/* FORM LẬP HÓA ĐƠN */}
                 <div className="portal-left-column">
                     <div className="card" style={{ padding: '24px' }}>
                         <h3 style={{ fontSize: '1.1rem', fontWeight: '800', marginBottom: '16px', color: 'var(--primary)' }}>
@@ -116,16 +130,31 @@ function FinanceLog() {
                                     <option value="Khóa học HSK 1">Khóa học HSK 1</option><option value="Khóa học HSK 2">Khóa học HSK 2</option><option value="Khóa học HSK 3">Khóa học HSK 3</option><option value="Lớp VIP 1-1">Lớp VIP 1-1</option>
                                 </select>
                             </div>
-                            <div>
-                                <label style={{ fontSize: '0.75rem', fontWeight: '700', color: 'var(--primary)' }}>Số tiền nộp (VNĐ)</label>
-                                <input type="number" className="form-control" placeholder="3500000" value={formInvoice.amount} onChange={e => setFormInvoice({ ...formInvoice, amount: e.target.value })} style={{ borderColor: 'var(--primary)' }} required />
+
+                            <div style={{ display: 'flex', gap: '12px' }}>
+                                <div style={{ flex: 1 }}>
+                                    <label style={{ fontSize: '0.75rem', fontWeight: '700', color: 'var(--primary)' }}>Tiền VNĐ</label>
+                                    <input type="number" className="form-control" placeholder="0" value={formInvoice.amount} onChange={e => setFormInvoice({ ...formInvoice, amount: e.target.value })} style={{ borderColor: 'var(--primary)' }} />
+                                </div>
+                                <div style={{ flex: 1 }}>
+                                    <label style={{ fontSize: '0.75rem', fontWeight: '700', color: '#059669' }}>Tiền JPY (Yên)</label>
+                                    <input type="number" className="form-control" placeholder="0" value={formInvoice.amountJpy} onChange={e => setFormInvoice({ ...formInvoice, amountJpy: e.target.value })} style={{ borderColor: '#10b981' }} />
+                                </div>
                             </div>
+
                             <div>
                                 <label style={{ fontSize: '0.75rem', fontWeight: '700', color: 'var(--text-muted)' }}>Hình thức thanh toán</label>
                                 <select className="form-control" value={formInvoice.method} onChange={e => setFormInvoice({ ...formInvoice, method: e.target.value })}>
                                     <option value="Chuyển khoản ngân hàng">Chuyển khoản ngân hàng</option><option value="Tiền mặt tại quầy">Tiền mặt tại quầy</option><option value="Quẹt thẻ POS">Quẹt thẻ POS</option>
                                 </select>
                             </div>
+
+                            {/* --- BỔ SUNG TRƯỜNG GHI CHÚ FORM TẠO MỚI --- */}
+                            <div>
+                                <label style={{ fontSize: '0.75rem', fontWeight: '700', color: 'var(--text-muted)' }}>Ghi chú thêm</label>
+                                <textarea className="form-control" rows="2" placeholder="Ví dụ: Đóng học phí đợt 1..." value={formInvoice.notes} onChange={e => setFormInvoice({ ...formInvoice, notes: e.target.value })} style={{ resize: 'vertical' }}></textarea>
+                            </div>
+
                             <button type="submit" className="btn btn-primary" style={{ padding: '12px', fontWeight: '700', backgroundColor: 'var(--primary)', color: 'white', borderRadius: '8px', cursor: 'pointer', marginTop: '6px' }}>
                                 XUẤT HÓA ĐƠN THU TIỀN
                             </button>
@@ -133,7 +162,6 @@ function FinanceLog() {
                     </div>
                 </div>
 
-                {/* BẢNG NHẬT KÝ GIAO DỊCH */}
                 <div className="portal-right-column">
                     <div className="card" style={{ padding: '24px' }}>
                         <h3 style={{ fontSize: '1.1rem', fontWeight: '800', marginBottom: '16px' }}>Nhật ký giao dịch dòng tiền</h3>
@@ -143,7 +171,7 @@ function FinanceLog() {
                                     <tr style={{ backgroundColor: 'var(--bg-app)' }}>
                                         <th style={{ padding: '12px' }}>Mã / Ngày nộp</th>
                                         <th style={{ padding: '12px' }}>Học viên / Nội dung</th>
-                                        <th style={{ padding: '12px' }}>Số tiền</th>
+                                        <th style={{ padding: '12px' }}>Số tiền đã nộp</th>
                                         <th style={{ padding: '12px' }}>Trạng thái</th>
                                         <th style={{ padding: '12px', textAlign: 'center' }}>Thao tác</th>
                                     </tr>
@@ -156,9 +184,19 @@ function FinanceLog() {
                                                 <strong>INV-{inv.id}</strong><span style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)' }}>{inv.date}</span>
                                             </td>
                                             <td style={{ padding: '14px 12px' }}>
-                                                <strong style={{ color: 'var(--text-main)' }}>{inv.studentName}</strong><span style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)' }}>{inv.course} ({inv.method})</span>
+                                                <strong style={{ color: 'var(--text-main)' }}>{inv.studentName}</strong>
+                                                <span style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)' }}>{inv.course} ({inv.method})</span>
+                                                {/* HIỂN THỊ GHI CHÚ TRÊN BẢNG */}
+                                                {inv.notes && <span style={{ display: 'block', fontSize: '0.7rem', color: '#94a3b8', fontStyle: 'italic', marginTop: '2px', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis' }}>Lưu ý: {inv.notes}</span>}
                                             </td>
-                                            <td style={{ padding: '14px 12px', fontWeight: '700', color: 'var(--primary)' }}>{inv.amount.toLocaleString('vi-VN')} đ</td>
+                                            <td style={{ padding: '14px 12px' }}>
+                                                {(inv.amount > 0 || (!inv.amount && !inv.amountJpy)) && (
+                                                    <div style={{ fontWeight: '700', color: 'var(--primary)' }}>{(inv.amount || 0).toLocaleString('vi-VN')} đ</div>
+                                                )}
+                                                {inv.amountJpy > 0 && (
+                                                    <div style={{ fontWeight: '700', color: '#059669', fontSize: '0.85rem', marginTop: '2px' }}>{inv.amountJpy.toLocaleString('vi-VN')} ¥</div>
+                                                )}
+                                            </td>
                                             <td style={{ padding: '14px 12px' }}><span className="badge-studying" style={{ backgroundColor: '#dcfce7', color: '#166534', fontWeight: '800' }}>{inv.status}</span></td>
                                             <td style={{ padding: '14px 12px', textAlign: 'center' }}>
                                                 <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
@@ -175,7 +213,6 @@ function FinanceLog() {
                 </div>
             </div>
 
-            {/* MODAL CHỈNH SỬA HÓA ĐƠN */}
             {editingInvoice && (
                 <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
                     <div className="card" style={{ width: '500px', backgroundColor: 'white', padding: '24px', borderRadius: '12px' }}>
@@ -196,15 +233,29 @@ function FinanceLog() {
                                 <label style={{ fontSize: '0.8rem', fontWeight: '700', color: 'var(--text-muted)' }}>Khóa học / Nội dung</label>
                                 <input type="text" className="form-control" value={editingInvoice.course || ''} onChange={(e) => setEditingInvoice({ ...editingInvoice, course: e.target.value })} />
                             </div>
-                            <div>
-                                <label style={{ fontSize: '0.8rem', fontWeight: '700', color: 'var(--text-muted)' }}>Số tiền</label>
-                                <input type="number" className="form-control" value={editingInvoice.amount || ''} onChange={(e) => setEditingInvoice({ ...editingInvoice, amount: parseInt(e.target.value) || 0 })} />
+
+                            <div style={{ display: 'flex', gap: '12px' }}>
+                                <div style={{ flex: 1 }}>
+                                    <label style={{ fontSize: '0.8rem', fontWeight: '700', color: 'var(--text-muted)' }}>Số tiền (VNĐ)</label>
+                                    <input type="number" className="form-control" value={editingInvoice.amount || ''} onChange={(e) => setEditingInvoice({ ...editingInvoice, amount: e.target.value })} />
+                                </div>
+                                <div style={{ flex: 1 }}>
+                                    <label style={{ fontSize: '0.8rem', fontWeight: '700', color: 'var(--text-muted)' }}>Số tiền (JPY)</label>
+                                    <input type="number" className="form-control" value={editingInvoice.amountJpy || ''} onChange={(e) => setEditingInvoice({ ...editingInvoice, amountJpy: e.target.value })} />
+                                </div>
                             </div>
+
                             <div>
                                 <label style={{ fontSize: '0.8rem', fontWeight: '700', color: 'var(--text-muted)' }}>Hình thức</label>
                                 <select className="form-control" value={editingInvoice.method} onChange={(e) => setEditingInvoice({ ...editingInvoice, method: e.target.value })}>
                                     <option value="Chuyển khoản ngân hàng">Chuyển khoản ngân hàng</option><option value="Tiền mặt tại quầy">Tiền mặt tại quầy</option><option value="Quẹt thẻ POS">Quẹt thẻ POS</option>
                                 </select>
+                            </div>
+
+                            {/* --- BỔ SUNG TRƯỜNG GHI CHÚ TRONG MODAL SỬA --- */}
+                            <div>
+                                <label style={{ fontSize: '0.8rem', fontWeight: '700', color: 'var(--text-muted)' }}>Ghi chú thêm</label>
+                                <textarea className="form-control" rows="2" value={editingInvoice.notes || ''} onChange={(e) => setEditingInvoice({ ...editingInvoice, notes: e.target.value })} style={{ resize: 'vertical' }}></textarea>
                             </div>
                         </div>
                         <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '24px', paddingTop: '16px', borderTop: '1px solid var(--border-color)' }}>
