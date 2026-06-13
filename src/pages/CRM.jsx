@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useData } from '../context/DataContext';
 import axios from 'axios';
 
@@ -7,12 +7,20 @@ const api = axios.create({
 });
 
 function CRM() {
-    // Sử dụng trực tiếp dữ liệu dùng chung từ DataContext để tránh nhân bản dữ liệu vô hạn
     const { customers, setCustomers } = useData();
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedCustomer, setSelectedCustomer] = useState(null);
     const [isEditing, setIsEditing] = useState(false);
     const [isPanelExpanded, setIsPanelExpanded] = useState(false);
+
+    // --- BƯỚC 1: LẤY DANH SÁCH TÀI KHOẢN SALE TỪ DATABASE ---
+    const [salesUsers, setSalesUsers] = useState([]);
+
+    useEffect(() => {
+        api.get('/users/role/sales')
+            .then(res => setSalesUsers(res.data))
+            .catch(() => console.log('Chưa lấy được danh sách Sale.'));
+    }, []);
 
     const [visibleColumns, setVisibleColumns] = useState({
         receiveDate: false, saleInCharge: false, dob: false, name: false,
@@ -32,8 +40,7 @@ function CRM() {
         { key: 'totalSessions', label: 'Số buổi', icon: 'fa-clock' },
         { key: 'lastContact', label: 'Liên hệ cuối', icon: 'fa-business-time' },
         { key: 'notes', label: 'Ghi chú', icon: 'fa-note-sticky' },
-        { key: 'nextAction', label: 'Việc tiếp theo', icon: 'fa-circle-exclamation' },
-        { key: 'assignClass', label: 'Xếp lớp', icon: 'fa-school' }
+        { key: 'nextAction', label: 'Việc tiếp theo', icon: 'fa-circle-exclamation' }
     ];
 
     const toggleColumn = (columnKey) => setVisibleColumns(prev => ({ ...prev, [columnKey]: !prev[columnKey] }));
@@ -41,7 +48,6 @@ function CRM() {
     const today = new Date();
     const defaultDate = `${today.getDate().toString().padStart(2, '0')}/${(today.getMonth() + 1).toString().padStart(2, '0')}/${today.getFullYear()}`;
 
-    // ĐỒNG BỘ: Cấu trúc formData ánh xạ chuẩn xác với CustomerEntity.java
     const [formData, setFormData] = useState({
         fbName: '', name: '', phone: '', dob: '', language: 'Tiếng Trung',
         customerType: 'Mới', source: 'Facebook', level: '', country: 'Việt Nam',
@@ -71,7 +77,6 @@ function CRM() {
             return;
         }
 
-        // Tạo object gửi lên Backend tuân thủ nghiêm ngặt CustomerEntity.java
         const newRecord = {
             fbName: formData.fbName,
             name: formData.name,
@@ -80,8 +85,8 @@ function CRM() {
             language: formData.language,
             customerType: formData.customerType,
             source: formData.source,
-            level: formData.level,           // Map vào trường KHÓA HỌC / TRÌNH ĐỘ trong DB
-            classType: formData.classType,   // Map chuẩn vào thuộc tính LOẠI LỚP trong DB
+            level: formData.level,
+            classType: formData.classType,
             status: formData.status,
             fee: formData.fee ? formData.fee.toString() : '0',
             totalSessions: formData.totalSessions ? formData.totalSessions.toString() : '0',
@@ -138,7 +143,6 @@ function CRM() {
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '28px', position: 'relative' }}>
 
-            {/* FORM TIẾP NHẬN HỒ SƠ */}
             <div className="card" style={{ padding: '24px' }}>
                 <h3 style={{ fontSize: '1.2rem', fontWeight: '800', marginBottom: '20px', color: '#1e3a8a' }}>
                     <i className="fa-solid fa-user-plus" style={{ marginRight: '8px' }}></i> Tiếp nhận Khách hàng
@@ -146,7 +150,18 @@ function CRM() {
                 <form onSubmit={handleFormSubmit} style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px' }}>
                     <div><label style={{ fontSize: '0.75rem', fontWeight: '700' }}>TÊN FB</label><input type="text" name="fbName" className="form-control" value={formData.fbName} onChange={handleInputChange} placeholder="Nhập tên FB..." /></div>
                     <div><label style={{ fontSize: '0.75rem', fontWeight: '700' }}>NGÀY NHẬN</label><input type="text" name="receiveDate" className="form-control" value={formData.receiveDate} onChange={handleInputChange} /></div>
-                    <div><label style={{ fontSize: '0.75rem', fontWeight: '700' }}>NGƯỜI SALE TIẾP NHẬN</label><input type="text" name="saleInCharge" className="form-control" value={formData.saleInCharge} onChange={handleInputChange} placeholder="Tên Sale..." /></div>
+                    
+                    {/* --- BƯỚC 2: CHUYỂN Ô NHẬP SALE THÀNH DROPDOWN --- */}
+                    <div>
+                        <label style={{ fontSize: '0.75rem', fontWeight: '700' }}>NGƯỜI SALE TIẾP NHẬN</label>
+                        <select name="saleInCharge" className="form-control" value={formData.saleInCharge} onChange={handleInputChange}>
+                            <option value="">-- Chọn Sale --</option>
+                            {salesUsers.map(sale => (
+                                <option key={sale.id} value={sale.name || sale.username}>{sale.name || sale.username}</option>
+                            ))}
+                        </select>
+                    </div>
+
                     <div><label style={{ fontSize: '0.75rem', fontWeight: '700', color: 'var(--primary)' }}>SĐT (Zalo) (*)</label><input type="text" name="phone" className="form-control" value={formData.phone} onChange={handleInputChange} required style={{ borderColor: 'var(--primary)' }} /></div>
 
                     <div><label style={{ fontSize: '0.75rem', fontWeight: '700' }}>NGÀY SINH</label><input type="text" name="dob" className="form-control" value={formData.dob} onChange={handleInputChange} placeholder="VD: 15/08/1998" /></div>
@@ -190,7 +205,6 @@ function CRM() {
                 </form>
             </div>
 
-            {/* BẢNG DANH SÁCH KHÁCH HÀNG */}
             <div className="card" style={{ padding: '24px' }}>
                 <div style={{ position: 'sticky', top: '0', zIndex: '20', backgroundColor: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '16px', marginBottom: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
                     <div style={{ display: 'flex', justifyContent: 'flex-start', alignItems: 'center', gap: '15px' }}>
@@ -258,7 +272,6 @@ function CRM() {
                                     {visibleColumns.name && <td style={{ padding: '14px 12px', fontWeight: '600' }}>{c.name || '---'}</td>}
                                     <td style={{ padding: '14px 12px' }}>{c.country || '---'}</td>
                                     <td style={{ padding: '14px 12px' }}>{c.language || '---'}</td>
-                                    {/* ĐÃ KHẮC PHỤC HIỂN THỊ CỘT THEO ĐÚNG MODEL JAVA */}
                                     <td style={{ padding: '14px 12px', fontWeight: '700', color: '#1e3a8a' }}>{c.level || '---'}</td>
                                     <td style={{ padding: '14px 12px', fontWeight: '700', color: '#10b981' }}>{c.classType || '---'}</td>
 
@@ -280,7 +293,6 @@ function CRM() {
                 </div>
             </div>
 
-            {/* ĐÃ ĐẠI TU: MODAL HỒ SƠ CHI TIẾT & CHỈNH SỬA ĐẦY ĐỦ 100% CÁC TRƯỜNG DỮ LIỆU */}
             {selectedCustomer && (
                 <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
                     <div className="card" style={{ width: '680px', backgroundColor: 'white', padding: '24px', borderRadius: '12px', maxHeight: '90vh', overflowY: 'auto' }}>
@@ -302,10 +314,20 @@ function CRM() {
                                 <label style={{ fontSize: '0.8rem', fontWeight: '700', color: 'var(--text-muted)' }}>Ngày nhận hồ sơ</label>
                                 {isEditing ? <input className="form-control" value={selectedCustomer.receiveDate || ''} onChange={(e) => setSelectedCustomer({ ...selectedCustomer, receiveDate: e.target.value })} /> : <div style={{ fontWeight: '600', padding: '8px 0' }}>{selectedCustomer.receiveDate || '---'}</div>}
                             </div>
+
+                            {/* --- BƯỚC 3: ĐỒNG BỘ DROPDOWN TRONG MODAL CHỈNH SỬA --- */}
                             <div>
                                 <label style={{ fontSize: '0.8rem', fontWeight: '700', color: 'var(--text-muted)' }}>Người Sale phụ trách</label>
-                                {isEditing ? <input className="form-control" value={selectedCustomer.saleInCharge || ''} onChange={(e) => setSelectedCustomer({ ...selectedCustomer, saleInCharge: e.target.value })} /> : <div style={{ fontWeight: '600', padding: '8px 0' }}>{selectedCustomer.saleInCharge || '---'}</div>}
+                                {isEditing ? (
+                                    <select className="form-control" value={selectedCustomer.saleInCharge || ''} onChange={(e) => setSelectedCustomer({ ...selectedCustomer, saleInCharge: e.target.value })}>
+                                        <option value="">-- Chọn Sale --</option>
+                                        {salesUsers.map(sale => (
+                                            <option key={sale.id} value={sale.name || sale.username}>{sale.name || sale.username}</option>
+                                        ))}
+                                    </select>
+                                ) : <div style={{ fontWeight: '600', padding: '8px 0' }}>{selectedCustomer.saleInCharge || '---'}</div>}
                             </div>
+
                             <div>
                                 <label style={{ fontSize: '0.8rem', fontWeight: '700', color: 'var(--text-muted)' }}>Họ và tên học viên</label>
                                 {isEditing ? <input className="form-control" value={selectedCustomer.name || ''} onChange={(e) => setSelectedCustomer({ ...selectedCustomer, name: e.target.value })} /> : <div style={{ fontWeight: '600', padding: '8px 0' }}>{selectedCustomer.name || '---'}</div>}
@@ -371,7 +393,7 @@ function CRM() {
                                 ) : <div style={{ fontWeight: '600', padding: '8px 0' }}>{selectedCustomer.status || '---'}</div>}
                             </div>
                             <div>
-                                <label style={{ fontSize: '0.8rem', fontWeight: '700', color: 'var(--text-muted)' }}>X xếp vào lớp</label>
+                                <label style={{ fontSize: '0.8rem', fontWeight: '700', color: 'var(--text-muted)' }}>Xếp vào lớp</label>
                                 {isEditing ? <input className="form-control" value={selectedCustomer.assignClass || ''} onChange={(e) => setSelectedCustomer({ ...selectedCustomer, assignClass: e.target.value })} /> : <div style={{ fontWeight: '600', padding: '8px 0' }}>{selectedCustomer.assignClass || '---'}</div>}
                             </div>
                             <div style={{ gridColumn: 'span 2' }}>
